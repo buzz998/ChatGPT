@@ -1,0 +1,18 @@
+糖的案卷 · Sugar Case File — 第三方素材与授权
+
+音乐采样
+Piano: "Salamander Grand Piano V3" by Alexander Holm, licensed under CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/)
+Samples (CC0): VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+配乐为原创（D 小调，92 BPM），只参照悬疑侦探氛围，未使用任何既有作品的旋律、和声或采样。
+音效：代码程序化合成（numpy/scipy），无第三方录音。
+
+字体（Google Fonts，SIL Open Font License 1.1，按用字子集化）
+Noto Serif SC, Noto Sans SC — Google / Adobe
+ZCOOL KuaiLe — ZCOOL
+Bagel Fat One — Kyungwon Kim, JAM
+JetBrains Mono — JetBrains
+
+配音
+Microsoft Edge 在线神经语音 zh-CN-XiaoxiaoNeural（经 edge-tts 调用）——待生成。
+
+文案与数据：由委托方提供，按原文使用。

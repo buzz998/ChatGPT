@@ -1,0 +1,1377 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>糖的案卷</title>
+<link rel="stylesheet" href="fonts.css">
+<style>
+  html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; background: #F1E4C6; }
+  svg, canvas { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  #paper { mix-blend-mode: multiply; pointer-events: none; }
+  #fx { pointer-events: none; }
+  .mul { mix-blend-mode: multiply; }
+</style>
+</head>
+<body>
+<svg id="stage" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="boil" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence id="boilT" type="fractalNoise" baseFrequency="0.022" numOctaves="2" seed="1" result="w"/>
+      <feDisplacementMap in="SourceGraphic" in2="w" scale="5" xChannelSelector="R" yChannelSelector="G" result="d"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="2" seed="4" result="g"/>
+      <feColorMatrix in="g" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -22 15.2" result="gm"/>
+      <feComposite in="d" in2="gm" operator="in"/>
+    </filter>
+    <filter id="stampInk" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" seed="11" result="w"/>
+      <feDisplacementMap in="SourceGraphic" in2="w" scale="7" xChannelSelector="R" yChannelSelector="G" result="d"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.55" numOctaves="3" seed="21" result="g"/>
+      <feColorMatrix in="g" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -9 5.9" result="gm"/>
+      <feComposite in="d" in2="gm" operator="in"/>
+    </filter>
+    <clipPath id="frameClip"><rect width="1080" height="1920"/></clipPath>
+  </defs>
+  <g clip-path="url(#frameClip)">
+    <g id="cam"><g id="world"></g></g>
+    <g id="caps"></g>
+    <g id="hud"></g>
+    <g id="wipe"></g>
+    <rect id="flash" width="1080" height="1920" fill="#FFFFFF" opacity="0"/>
+    <rect id="fade" width="1080" height="1920" fill="#1C2340" opacity="0"/>
+  </g>
+</svg>
+<canvas id="paper" width="1080" height="1920"></canvas>
+<canvas id="fx" width="1080" height="1920"></canvas>
+
+<script>
+// ============================================================
+// 基础
+// ============================================================
+const NS = 'http://www.w3.org/2000/svg';
+const W = 1080, H = 1920, FPS = 30;
+const C = {
+  paper: '#F1E4C6', navy: '#1C2340', caramel: '#C8834A', yellow: '#F5C518', red: '#D8352A', mint: '#3FA7A0',
+  cream: '#FFF6E6', night: '#161C36', night2: '#2C3566', light: '#F8EFD9',
+};
+const F = {
+  serif: "'Noto Serif SC'", cute: "'ZCOOL KuaiLe'", bagel: "'Bagel Fat One'",
+  mono: "'JetBrains Mono', 'Noto Sans SC'", sans: "'Noto Sans SC'",
+};
+// 时间轴（单一来源；配音完成后按实测重排）
+const TL = window.TL = {
+  open: 0, mug: 1.7, hide: 3.6, blood: 8.6, c1: 15.0, c1b: 21.8, c1c: 26.8, c2: 31.6, c3: 41.6, c4: 50.2, c5: 55.8,
+  board: 63.0, disguise: 65.2, verdict: 72.8, close: 84.2, end: 89.8, dur: 93.5,
+};
+const DUR = TL.dur;
+// 字幕卡：口播原句（[文本, 关键词...]）
+const CAPS = [
+  [0.2, 1.9, '立案。嫌疑人：糖。', ['立案', '糖']],
+  [1.9, 3.8, '藏身地点：你手里这杯全糖奶茶。', ['全糖奶茶']],
+  [3.8, 8.6, '一大杯大约30多克，差不多8块方糖。', ['30多克', '8块方糖']],
+  [8.6, 12.0, '而你全身血液里的糖，加起来只有4克左右。', ['4克']],
+  [12.0, 14.9, '一口气灌进去七八倍，身体怎么收场？', ['七八倍']],
+  [15.1, 17.2, '罪状一：累垮胰岛素。', ['累垮胰岛素']],
+  [17.2, 19.4, '糖冲进血液，血糖猛涨，', ['血糖猛涨']],
+  [19.4, 21.8, '胰腺紧急派出胰岛素去处理。', ['胰岛素']],
+  [21.8, 25.0, '天天这样，细胞对胰岛素越来越不理睬，', ['不理睬']],
+  [25.0, 26.8, '这叫胰岛素抵抗。', ['胰岛素抵抗']],
+  [26.8, 29.4, '研究发现，每天多喝一份含糖饮料，', ['一份']],
+  [29.4, 31.6, '2型糖尿病风险约高18%。', ['18%']],
+  [31.6, 34.2, '罪状二：把肝脏变成脂肪仓库。', ['脂肪仓库']],
+  [34.2, 36.6, '糖里的果糖主要由肝脏处理，', ['果糖']],
+  [36.6, 39.6, '喝多了，肝脏就把它变成脂肪囤起来，', ['脂肪']],
+  [39.6, 41.6, '时间长了，就是脂肪肝。', ['脂肪肝']],
+  [41.6, 43.6, '罪状三：让皮肤变老。', ['皮肤变老']],
+  [43.6, 46.0, '多余的糖粘在胶原蛋白上，', ['胶原蛋白']],
+  [46.0, 47.8, '形成“糖化终产物”，', ['糖化终产物']],
+  [47.8, 50.2, '皮肤失去弹性，更容易长皱纹。', ['皱纹']],
+  [50.2, 52.0, '罪状四：腐蚀牙齿。', ['腐蚀牙齿']],
+  [52.0, 54.0, '嘴里的细菌吃糖、吐酸，', ['吐酸']],
+  [54.0, 55.8, '牙齿一点点被蛀空。', ['蛀空']],
+  [55.8, 57.8, '罪状五：悄悄让你变胖。', ['变胖']],
+  [57.8, 60.2, '用不完的糖最后变成脂肪，', ['脂肪']],
+  [60.2, 63.0, '而喝下去的热量，偏偏最不顶饱。', ['最不顶饱']],
+  [65.2, 67.2, '它最狡猾的是伪装：', ['伪装']],
+  [67.2, 69.4, '标着“不另外加糖”的奶茶，', ['不另外加糖']],
+  [69.4, 72.6, '检测出来每100克仍有约4克糖。', ['约4克糖']],
+  [73.2, 76.0, '宣判：《中国居民膳食指南》建议，', ['宣判']],
+  [76.0, 78.6, '成年人每天添加糖不超过50克，', ['50克']],
+  [78.6, 80.6, '最好控制在25克以下。', ['25克']],
+  [80.6, 83.4, '一杯全糖奶茶，就已经越过了这条线。', ['越过了这条线']],
+  [84.4, 86.0, '不是一口都不能喝，', []],
+  [86.0, 88.0, '是别天天喝、别喝全糖。', ['别天天喝', '别喝全糖']],
+  [88.0, 89.8, '结案。', ['结案']],
+  [90.0, 93.3, '关注我，复杂的事讲清楚。', ['复杂的事讲清楚']],
+];
+
+function el(tag, attrs = {}, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function txt(parent, str, attrs) { const e = el('text', attrs, parent); e.textContent = str; return e; }
+function tf(e, x = 0, y = 0, s = 1, r = 0, sy) {
+  e.setAttribute('transform', `translate(${x.toFixed(2)} ${y.toFixed(2)}) rotate(${r.toFixed(2)}) scale(${s.toFixed(4)} ${(sy ?? s).toFixed(4)})`);
+}
+function op(e, o) { e.setAttribute('opacity', Math.max(0, Math.min(1, o)).toFixed(3)); }
+function show(e, v) { e.style.display = v ? '' : 'none'; }
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, p) => a + (b - a) * p;
+const E = {
+  out: p => 1 - Math.pow(1 - p, 3),
+  in: p => p * p * p,
+  io: p => p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2,
+  back: p => { const c = 1.9; return 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); },
+};
+const pop = (t, t0, d = 0.35) => t < t0 ? 0 : E.back(seg(t, t0, t0 + d));
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const mctx = document.createElement('canvas').getContext('2d');
+function measure(str, size, family, weight = 900) { mctx.font = `${weight} ${size}px ${family}`; return mctx.measureText(str).width; }
+// 落地挤压：保持体积
+function squash(t, t0, amt = 0.22, k = 9) { if (t < t0) return 1; const a = t - t0; return 1 + amt * Math.cos(a * 22) * Math.exp(-a * k); }
+
+// ---------- 逐字文字 ----------
+function chars(parent, str, o) {
+  const { x, y, size, family, weight = 900, fill = C.navy, anchor = 'start', ls = 0, shadow, stroke, sw = 0 } = o;
+  const g = el('g', {}, parent);
+  const arr = [...str];
+  const widths = arr.map(c => measure(c, size, family, weight));
+  const total = widths.reduce((a, b) => a + b, 0) + ls * (arr.length - 1);
+  let cx = anchor === 'middle' ? x - total / 2 : anchor === 'end' ? x - total : x;
+  const items = arr.map((ch, i) => {
+    const cg = el('g', {}, g);
+    const base = { x: 0, y: 0, 'font-size': size, 'font-family': family, 'font-weight': weight, 'text-anchor': 'middle' };
+    if (shadow) txt(cg, ch, { ...base, x: shadow.dx, y: shadow.dy, fill: shadow.fill, class: 'mul' });
+    const st = stroke ? { stroke, 'stroke-width': sw, 'paint-order': 'stroke', 'stroke-linejoin': 'round' } : {};
+    txt(cg, ch, { ...base, fill, ...st });
+    const it = { g: cg, x: cx + widths[i] / 2, y, w: widths[i], size };
+    cx += widths[i] + ls;
+    tf(cg, it.x, it.y);
+    return it;
+  });
+  return { g, items, total, str };
+}
+function charsPop(c, t, t0, stagger = 0.06, d = 0.38, from = 70) {
+  c.items.forEach((it, i) => {
+    const s = t0 + i * stagger;
+    const p = seg(t, s, s + d);
+    const h = it.size * 0.35;
+    if (t < s) { op(it.g, 0); return; }
+    op(it.g, 1);
+    const sc = E.back(p);
+    const sq = 1 + 0.25 * Math.sin(p * Math.PI) * (1 - p);
+    it.g.setAttribute('transform', `translate(${it.x} ${it.y + from * (1 - E.out(p))}) translate(0 ${-h}) scale(${(sc / sq).toFixed(3)} ${(sc * sq).toFixed(3)}) translate(0 ${h})`);
+  });
+}
+const HL = (parent, str, x, y, size = 130, fill = C.navy, sh = C.caramel) =>
+  chars(parent, str, { x, y, size, family: F.serif, fill, shadow: { fill: sh, dx: 8, dy: 8 } });
+
+// ---------- 半调网点 ----------
+function halftone(parent, { x0 = 0, y0 = 0, w = W, h = H, step = 22, angle = 15, color, f, maxK = 0.64 }) {
+  const a = angle * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
+  const n = Math.ceil(Math.hypot(w, h) / step / 2) + 2;
+  let d = '';
+  for (let i = -n; i <= n; i++) for (let j = -n; j <= n; j++) {
+    const u = i * step, v = j * step;
+    const x = x0 + w / 2 + u * ca - v * sa, y = y0 + h / 2 + u * sa + v * ca;
+    if (x < x0 - step || x > x0 + w + step || y < y0 - step || y > y0 + h + step) continue;
+    const s = clamp(f(x, y)); if (s < 0.05) continue;
+    const r = s * step * maxK;
+    d += `M${(x - r).toFixed(1)} ${y.toFixed(1)}a${r.toFixed(1)} ${r.toFixed(1)} 0 1 0 ${(2 * r).toFixed(1)} 0a${r.toFixed(1)} ${r.toFixed(1)} 0 1 0 ${(-2 * r).toFixed(1)} 0`;
+  }
+  return el('path', { d, fill: color }, parent);
+}
+const radial = (cx, cy, R, pw = 1.2) => (x, y) => Math.pow(clamp(1 - Math.hypot(x - cx, y - cy) / R), pw);
+const edge = (R = 1100, pw = 1.6) => (x, y) => Math.pow(clamp(Math.hypot((x - 540) * 1.6, y - 960) / R - 0.4), pw) * 1.3;
+const ramp = (y0, y1, a = 0, b = 1) => (x, y) => lerp(a, b, seg(y, y0, y1));
+function bg(parent, color) { return el('rect', { x: -200, y: -200, width: W + 400, height: H + 400, fill: color }, parent); }
+let clipN = 0;
+function clipTo(parent, shapeTag, attrs) {
+  const id = 'clp' + (clipN++);
+  const cp = el('clipPath', { id }, document.querySelector('defs'));
+  el(shapeTag, attrs, cp);
+  return el('g', { 'clip-path': `url(#${id})` }, parent);
+}
+
+// 大号半调数字（出血）
+function bigNum(parent, str, x, y, size, fill, dot) {
+  const g = el('g', {}, parent);
+  const id = 'num' + (clipN++);
+  const cp = el('clipPath', { id }, document.querySelector('defs'));
+  txt(cp, str, { x, y, 'font-size': size, 'font-family': F.bagel, 'text-anchor': 'middle' });
+  txt(g, str, { x, y, 'font-size': size, 'font-family': F.bagel, 'text-anchor': 'middle', fill });
+  const hg = el('g', { 'clip-path': `url(#${id})`, class: 'mul' }, g);
+  halftone(hg, { x0: x - size, y0: y - size, w: size * 2, h: size * 1.2, step: 20, angle: 45, color: dot, f: radial(x + size * 0.3, y, size * 1.1, 0.8), maxK: 0.7 });
+  return g;
+}
+
+// ---------- 印章 ----------
+function stampEl(parent, str, { size = 180, color = C.red, family = F.sans, padX = 46, padY = 24, border = 12 } = {}) {
+  const g = el('g', {}, parent);
+  const inner = el('g', { filter: 'url(#stampInk)' }, g);
+  const w = measure(str, size, family, 900) + padX * 2, h = size * 1.08 + padY * 2;
+  el('rect', { x: -w / 2, y: -h / 2, width: w, height: h, rx: 22, fill: 'none', stroke: color, 'stroke-width': border }, inner);
+  el('rect', { x: -w / 2 + border * 1.8, y: -h / 2 + border * 1.8, width: w - border * 3.6, height: h - border * 3.6, rx: 12, fill: 'none', stroke: color, 'stroke-width': border * 0.35 }, inner);
+  txt(inner, str, { x: 0, y: size * 0.36, 'font-size': size, 'font-family': family, 'font-weight': 900, fill: color, 'text-anchor': 'middle' });
+  return { g, w, h };
+}
+function stampAnim(s, t, t0, x, y, rot) {
+  if (t < t0 - 0.09) { op(s.g, 0); return; }
+  const p = seg(t, t0 - 0.09, t0);
+  const after = Math.max(0, t - t0);
+  const bounce = 1 + 0.05 * Math.sin(after * 30) * Math.exp(-after * 9);
+  op(s.g, p < 1 ? 0.3 + 0.7 * p : 0.93);
+  tf(s.g, x, y, lerp(2.6, 1, E.in(p)) * bounce, rot);
+}
+// 小标签条
+function chipEl(parent, str, { size = 34, fill = C.navy, ink = C.cream, family = F.sans } = {}) {
+  const g = el('g', {}, parent);
+  const w = measure(str, size, family, 900) + 32;
+  el('rect', { x: 0, y: -size * 0.95, width: w, height: size * 1.35, rx: 8, fill }, g);
+  txt(g, str, { x: 16, y: 0, 'font-size': size, 'font-family': family, 'font-weight': 900, fill: ink });
+  return { g, w };
+}
+const LW = 7;
+const S = (fill, w = LW) => ({ fill, stroke: C.navy, 'stroke-width': w, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
+
+// ============================================================
+// 角色：嫌疑人“方糖”
+// ============================================================
+function cubeChar(parent, { face = true, limbs = true } = {}) {
+  const g = el('g', {}, parent);
+  const body = el('g', { filter: 'url(#boil)' }, g);
+  if (limbs) {
+    el('path', { d: 'M -46 98 L -52 150 M 46 98 L 52 150', stroke: C.navy, 'stroke-width': 16, 'stroke-linecap': 'round', fill: 'none' }, body);
+    el('path', { d: 'M -70 154 L -40 154 M 40 154 L 72 154', stroke: C.navy, 'stroke-width': 18, 'stroke-linecap': 'round' }, body);
+  }
+  const armL = el('g', {}, body), armR = el('g', {}, body);
+  if (limbs) {
+    el('path', { d: 'M 0 0 Q -40 10 -62 44', stroke: C.navy, 'stroke-width': 16, 'stroke-linecap': 'round', fill: 'none' }, armL);
+    el('path', { d: 'M 0 0 Q 40 10 62 44', stroke: C.navy, 'stroke-width': 16, 'stroke-linecap': 'round', fill: 'none' }, armR);
+  }
+  tf(armL, -100, 10); tf(armR, 128, -6);
+  // 立方体三面
+  el('path', { d: 'M -100 -100 L -60 -140 L 140 -140 L 100 -100 Z', ...S(C.light) }, body);
+  el('path', { d: 'M 100 -100 L 140 -140 L 140 60 L 100 100 Z', ...S(C.yellow) }, body);
+  el('rect', { x: -100, y: -100, width: 200, height: 200, rx: 18, ...S(C.cream) }, body);
+  // 晶体闪点
+  const sp = 'M0 -9 L2.5 -2.5 L9 0 L2.5 2.5 L0 9 L-2.5 2.5 L-9 0 L-2.5 -2.5 Z';
+  for (const [x, y, s] of [[-70, -70, 1], [70, 72, 0.8], [-66, 66, 0.7], [20, -122, 0.8], [118, -30, 0.8]])
+    el('path', { d: sp, fill: C.navy, transform: `translate(${x} ${y}) scale(${s})` }, body);
+  const c = { g, body, armL, armR };
+  if (face) {
+    const fg = el('g', {}, body);
+    const mkEye = (x) => {
+      const eg = el('g', {}, fg);
+      const open = el('g', {}, eg);
+      const pupil = el('g', {}, open);
+      el('ellipse', { cx: 0, cy: 0, rx: 15, ry: 20, fill: C.navy }, pupil);
+      el('circle', { cx: 5, cy: -8, r: 6.5, fill: C.cream }, pupil);
+      el('circle', { cx: -5, cy: 8, r: 2.8, fill: C.cream }, pupil);
+      const lid = el('rect', { x: -22, y: -26, width: 44, height: 0, fill: C.cream }, eg);
+      const closed = el('path', { d: 'M -18 0 Q 0 12 18 0', fill: 'none', stroke: C.navy, 'stroke-width': 6, 'stroke-linecap': 'round' }, eg);
+      const brow = el('path', { d: 'M -20 0 L 20 0', stroke: C.navy, 'stroke-width': 7, 'stroke-linecap': 'round' }, eg);
+      return { g: eg, open, pupil, lid, closed, brow, x, y: -14 };
+    };
+    c.eyeL = mkEye(-40); c.eyeR = mkEye(40);
+    c.mouth = el('path', { d: '', fill: 'none', stroke: C.navy, 'stroke-width': 6, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, fg);
+    el('ellipse', { cx: -66, cy: 30, rx: 15, ry: 8, fill: C.caramel, opacity: 0.55 }, fg);
+    el('ellipse', { cx: 66, cy: 30, rx: 15, ry: 8, fill: C.caramel, opacity: 0.55 }, fg);
+    setCube(c, {});
+  }
+  return c;
+}
+// lid: 上眼皮下压 0..1（狡猾眯眼）；brow: 眉毛角度（正=得意/坏笑）；mouth: smirk|o|sad|flat|grin
+function setCube(c, { open = 1, lid = 0, lookX = 0, lookY = 0, brow = 0, browY = -34, mouth = 'smirk', armL = 0, armR = 0 }) {
+  for (const [e, sgn] of [[c.eyeL, -1], [c.eyeR, 1]]) {
+    tf(e.g, e.x, e.y);
+    show(e.open, open > 0.18); show(e.closed, open <= 0.18);
+    e.open.setAttribute('transform', `scale(1 ${Math.max(open, 0.18).toFixed(3)})`);
+    tf(e.pupil, lookX, lookY);
+    e.lid.setAttribute('height', (lid * 26).toFixed(1));
+    show(e.lid, open > 0.18 && lid > 0);
+    e.brow.setAttribute('transform', `translate(0 ${browY}) rotate(${sgn * brow})`);
+  }
+  const M = {
+    smirk: 'M -26 44 Q 0 58 30 36', o: 'M -12 40 Q 0 26 12 40 Q 0 62 -12 40 Z', sad: 'M -24 54 Q 0 38 24 54',
+    flat: 'M -20 46 L 20 46', grin: 'M -30 38 Q 0 70 30 38 Z',
+  };
+  c.mouth.setAttribute('d', M[mouth]);
+  c.mouth.setAttribute('fill', mouth === 'o' || mouth === 'grin' ? C.navy : 'none');
+  c.armL.setAttribute('transform', `translate(-100 10) rotate(${armL})`);
+  c.armR.setAttribute('transform', `translate(128 -6) rotate(${armR})`);
+}
+function blinkAt(t, times, d = 0.16) {
+  let o = 1;
+  for (const b of times) { const p = seg(t, b, b + d); if (p > 0 && p < 1) o = Math.min(o, Math.abs(1 - 2 * p)); }
+  return o;
+}
+// 无脸小方糖
+function miniCube(parent, s = 1) {
+  const g = el('g', { transform: `scale(${s})` }, parent);
+  el('path', { d: 'M -30 -30 L -18 -42 L 42 -42 L 30 -30 Z', ...S(C.light, 5) }, g);
+  el('path', { d: 'M 30 -30 L 42 -42 L 42 18 L 30 30 Z', ...S(C.yellow, 5) }, g);
+  el('rect', { x: -30, y: -30, width: 60, height: 60, rx: 6, ...S(C.cream, 5) }, g);
+  el('path', { d: 'M -14 -12 l 3 6 l 6 3 l -6 3 l -3 6 l -3 -6 l -6 -3 l 6 -3 Z', fill: C.navy }, g);
+  return g;
+}
+
+// ============================================================
+// 道具
+// ============================================================
+// 奶茶杯：中心 (0,0) 为杯身中部；约 300×460
+function milkTea(parent, { label = '全糖', pearls = true, xray = 0 } = {}) {
+  const g = el('g', {}, parent);
+  const b = el('g', { filter: 'url(#boil)' }, g);
+  // 吸管
+  el('path', { d: 'M 30 -250 L 80 -390 L 112 -380 L 64 -246 Z', ...S(C.red, 6) }, b);
+  el('path', { d: 'M 50 -300 L 96 -296 M 60 -330 L 103 -326', stroke: C.cream, 'stroke-width': 6, 'stroke-linecap': 'round' }, b);
+  const cup = 'M -150 -220 L 150 -220 L 118 230 Q 116 250 96 250 L -96 250 Q -116 250 -118 230 Z';
+  el('path', { d: cup, ...S(C.cream) }, b);
+  const inner = clipTo(b, 'path', { d: cup });
+  el('rect', { x: -170, y: -170, width: 340, height: 440, fill: C.caramel }, inner);
+  halftone(inner, { x0: -170, y0: -180, w: 340, h: 440, step: 18, angle: 30, color: C.navy, f: (x, y) => 0.15 + 0.35 * seg(y, -150, 250) + 0.25 * seg(Math.abs(x), 60, 150), maxK: 0.6 }).setAttribute('class', 'mul');
+  // 液面
+  el('path', { d: 'M -146 -170 Q 0 -150 146 -170', fill: 'none', stroke: C.navy, 'stroke-width': 5 }, inner);
+  if (pearls) {
+    const r = rng(7);
+    for (let i = 0; i < 26; i++) {
+      const y = 180 + r() * 60 - (i % 3) * 22, x = -110 + (i * 37) % 220 + r() * 10;
+      el('circle', { cx: x, cy: y, r: 17, fill: C.navy }, inner);
+      el('circle', { cx: x - 5, cy: y - 6, r: 4.5, fill: C.cream, opacity: 0.8 }, inner);
+    }
+  }
+  // X 光：藏在杯里的方糖
+  const xr = el('g', {}, inner);
+  for (let i = 0; i < 8; i++) {
+    const cg = el('g', { transform: `translate(${-78 + (i % 3) * 78 + (i > 5 ? 39 : 0)} ${-90 + Math.floor(i / 3) * 86}) rotate(${(i * 23) % 30 - 15})` }, xr);
+    el('rect', { x: -32, y: -32, width: 64, height: 64, rx: 8, fill: C.cream, stroke: C.yellow, 'stroke-width': 6, 'stroke-dasharray': '10 7' }, cg);
+  }
+  op(xr, xray);
+  // 盖子
+  el('path', { d: 'M -166 -222 Q -166 -246 -140 -250 L 140 -250 Q 166 -246 166 -222 Z', ...S(C.light) }, b);
+  // 标签
+  const lab = el('g', { transform: 'translate(0 40) rotate(-4)' }, b);
+  const lw = measure(label, 54, F.sans, 900) + 50;
+  el('rect', { x: -lw / 2, y: -42, width: lw, height: 84, rx: 10, ...S(C.yellow, 6) }, lab);
+  const lt = txt(lab, label, { x: 0, y: 19, 'font-size': 54, 'font-family': F.sans, 'font-weight': 900, fill: C.navy, 'text-anchor': 'middle' });
+  return { g, xr, lab, lt };
+}
+// 证物袋
+function evidenceBag(parent) {
+  const g = el('g', {}, parent);
+  el('rect', { x: -230, y: -330, width: 460, height: 660, rx: 24, fill: C.night2, opacity: 0.0 }, g);
+  const content = el('g', {}, g);
+  const front = el('g', {}, g);
+  el('rect', { x: -230, y: -330, width: 460, height: 660, rx: 24, fill: 'none', stroke: C.cream, 'stroke-width': 7 }, front);
+  // 塑料反光：网点斜带
+  const sh = clipTo(front, 'rect', { x: -230, y: -330, width: 460, height: 660, rx: 24 });
+  halftone(sh, { x0: -260, y0: -360, w: 520, h: 720, step: 18, angle: 20, color: C.cream, f: (x, y) => Math.pow(clamp(1 - Math.abs((x + y * 0.5) - 60) / 90), 1.4) * 0.7, maxK: 0.55 });
+  el('rect', { x: -230, y: -330, width: 460, height: 92, rx: 22, fill: C.red }, front);
+  el('rect', { x: -230, y: -260, width: 460, height: 22, fill: C.red }, front);
+  txt(front, '证 物  EVIDENCE', { x: 0, y: -272, 'font-size': 40, 'font-family': F.mono, 'font-weight': 800, fill: C.cream, 'text-anchor': 'middle' });
+  el('path', { d: 'M -230 -226 L 230 -226', stroke: C.cream, 'stroke-width': 5, 'stroke-dasharray': '16 10' }, front);
+  const tag = el('g', { transform: 'translate(110 250) rotate(-6)' }, front);
+  el('rect', { x: -110, y: -46, width: 220, height: 92, rx: 8, ...S(C.cream, 5) }, tag);
+  txt(tag, 'No.001', { x: 0, y: -6, 'font-size': 34, 'font-family': F.mono, 'font-weight': 800, fill: C.navy, 'text-anchor': 'middle' });
+  txt(tag, '全糖奶茶 ×1', { x: 0, y: 32, 'font-size': 28, 'font-family': F.sans, 'font-weight': 900, fill: C.navy, 'text-anchor': 'middle' });
+  return { g, content };
+}
+// 胰岛素信使
+function messenger(parent) {
+  const g = el('g', {}, parent);
+  const b = el('g', { filter: 'url(#boil)' }, g);
+  el('path', { d: 'M -14 34 L -18 58 M 14 34 L 18 58', stroke: C.navy, 'stroke-width': 9, 'stroke-linecap': 'round' }, b);
+  el('circle', { cx: 0, cy: 0, r: 40, ...S(C.mint, 6) }, b);
+  el('circle', { cx: -12, cy: -6, r: 6, fill: C.navy });
+  el('circle', { cx: -13, cy: -6, r: 6, fill: C.navy }, b);
+  el('circle', { cx: 13, cy: -6, r: 6, fill: C.navy }, b);
+  el('path', { d: 'M -10 12 Q 0 20 10 12', fill: 'none', stroke: C.navy, 'stroke-width': 5, 'stroke-linecap': 'round' }, b);
+  // 钥匙
+  const k = el('g', { transform: 'translate(46 6) rotate(20)' }, b);
+  el('circle', { cx: 0, cy: 0, r: 12, ...S(C.yellow, 5) }, k);
+  el('path', { d: 'M 10 0 L 42 0 M 32 0 L 32 10 M 40 0 L 40 8', stroke: C.navy, 'stroke-width': 6, 'stroke-linecap': 'round' }, k);
+  return g;
+}
+// 细胞（带门）
+function cellEl(parent) {
+  const g = el('g', {}, parent);
+  const b = el('g', { filter: 'url(#boil)' }, g);
+  el('path', { d: 'M -200 40 C -210 -120 -90 -200 20 -190 C 160 -180 220 -80 206 40 C 196 160 90 210 -10 204 C -130 198 -192 150 -200 40 Z', ...S(C.light) }, b);
+  halftone(clipTo(b, 'path', { d: 'M -200 40 C -210 -120 -90 -200 20 -190 C 160 -180 220 -80 206 40 C 196 160 90 210 -10 204 C -130 198 -192 150 -200 40 Z' }), { x0: -220, y0: -220, w: 450, h: 450, step: 18, angle: 60, color: C.caramel, f: radial(60, -40, 260, 0.8), maxK: 0.5 }).setAttribute('class', 'mul');
+  el('circle', { cx: 60, cy: -50, r: 52, ...S(C.caramel, 6) }, b);
+  const door = el('g', { transform: 'translate(-150 60)' }, b);
+  el('rect', { x: -44, y: -80, width: 88, height: 140, rx: 10, ...S(C.navy, 6) }, door);
+  el('circle', { cx: 26, cy: -6, r: 7, fill: C.yellow }, door);
+  // 门上“请勿打扰”牌
+  const sign = el('g', { transform: 'translate(-150 -60) rotate(-6)' }, b);
+  el('rect', { x: -64, y: -26, width: 128, height: 52, rx: 6, ...S(C.cream, 5) }, sign);
+  txt(sign, '已读不回', { x: 0, y: 12, 'font-size': 28, 'font-family': F.cute, fill: C.red, 'text-anchor': 'middle' });
+  return { g, door, sign };
+}
+// 肝脏
+function liverEl(parent) {
+  const g = el('g', {}, parent);
+  const d = 'M -280 -40 C -300 -150 -150 -200 20 -180 C 190 -160 300 -120 290 -50 C 280 20 180 60 60 120 C -40 170 -150 190 -230 120 C -280 80 -272 20 -280 -40 Z';
+  const b = el('g', { filter: 'url(#boil)' }, g);
+  const body = el('path', { d, ...S(C.caramel) }, b);
+  const inside = clipTo(b, 'path', { d });
+  const fat = el('g', {}, inside);
+  const r = rng(31); const drops = [];
+  for (let i = 0; i < 34; i++) {
+    const x = -250 + r() * 520, y = -170 + r() * 300;
+    const dg = el('g', { transform: `translate(${x} ${y})` }, fat);
+    el('circle', { cx: 0, cy: 0, r: 22 + r() * 16, ...S(C.yellow, 5) }, dg);
+    el('circle', { cx: -7, cy: -8, r: 6, fill: C.cream }, dg);
+    drops.push({ g: dg, x, y, t: r() });
+  }
+  el('path', { d, fill: 'none', stroke: C.navy, 'stroke-width': LW }, b);
+  // 仓库大门
+  const door = el('g', { transform: 'translate(-60 40)' }, b);
+  el('rect', { x: -70, y: -70, width: 140, height: 110, rx: 6, ...S(C.navy, 6) }, door);
+  for (let i = 0; i < 5; i++) el('path', { d: `M -62 ${-52 + i * 20} L 62 ${-52 + i * 20}`, stroke: C.caramel, 'stroke-width': 4 }, door);
+  const sign = el('g', { transform: 'translate(60 -110) rotate(3)' }, b);
+  el('rect', { x: -110, y: -32, width: 220, height: 62, rx: 6, ...S(C.cream, 5) }, sign);
+  txt(sign, '脂肪仓库', { x: 0, y: 14, 'font-size': 38, 'font-family': F.sans, 'font-weight': 900, fill: C.navy, 'text-anchor': 'middle' });
+  return { g, body, drops };
+}
+function crate(parent, label = '果糖') {
+  const g = el('g', {}, parent);
+  const b = el('g', { filter: 'url(#boil)' }, g);
+  el('rect', { x: -48, y: -48, width: 96, height: 96, rx: 6, ...S(C.yellow, 6) }, b);
+  el('path', { d: 'M -48 -48 L 48 48 M 48 -48 L -48 48', stroke: C.caramel, 'stroke-width': 6 }, b);
+  el('rect', { x: -40, y: -18, width: 80, height: 36, rx: 4, fill: C.cream, stroke: C.navy, 'stroke-width': 4 }, b);
+  txt(b, label, { x: 0, y: 11, 'font-size': 26, 'font-family': F.sans, 'font-weight': 900, fill: C.navy, 'text-anchor': 'middle' });
+  return g;
+}
+// 牙齿（臼齿）
+function toothEl(parent) {
+  const g = el('g', {}, parent);
+  const d = 'M -170 -150 C -170 -230 -90 -240 -40 -200 C -10 -180 10 -180 40 -200 C 90 -240 170 -230 170 -150 C 170 -60 140 0 120 80 C 104 150 96 230 70 240 C 40 250 30 150 0 120 C -30 150 -40 250 -70 240 C -96 230 -104 150 -120 80 C -140 0 -170 -60 -170 -150 Z';
+  const b = el('g', { filter: 'url(#boil)' }, g);
+  el('path', { d, ...S(C.cream) }, b);
+  const inside = clipTo(b, 'path', { d });
+  const holes = [];
+  for (const [x, y, R] of [[-70, -140, 70], [60, -120, 60], [0, -40, 80], [-90, 20, 50]]) {
+    const hg = el('g', {}, inside);
+    halftone(hg, { x0: x - R * 1.3, y0: y - R * 1.3, w: R * 2.6, h: R * 2.6, step: 16, angle: 30, color: C.navy, f: radial(x, y, R, 0.6), maxK: 0.72 });
+    holes.push(hg);
+  }
+  el('path', { d, fill: 'none', stroke: C.navy, 'stroke-width': LW }, b);
+  el('path', { d: 'M -120 -170 Q -100 -200 -70 -196', fill: 'none', stroke: C.light, 'stroke-width': 10, 'stroke-linecap': 'round' }, b);
+  return { g, holes };
+}
+function germ(parent, col = C.mint) {
+  const g = el('g', {}, parent);
+  const b = el('g', { filter: 'url(#boil)' }, g);
+  for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283; el('path', { d: `M ${Math.cos(a) * 30} ${Math.sin(a) * 30} L ${Math.cos(a) * 46} ${Math.sin(a) * 46}`, stroke: C.navy, 'stroke-width': 6, 'stroke-linecap': 'round' }, b); }
+  el('circle', { cx: 0, cy: 0, r: 34, ...S(col, 6) }, b);
+  el('path', { d: 'M -18 -12 L -6 -6 M 18 -12 L 6 -6', stroke: C.navy, 'stroke-width': 5, 'stroke-linecap': 'round' }, b);
+  const mouth = el('ellipse', { cx: 0, cy: 12, rx: 13, ry: 9, fill: C.navy }, b);
+  return { g, mouth };
+}
+// 仪表
+function gauge(parent, label, col) {
+  const g = el('g', {}, parent);
+  el('path', { d: 'M -150 0 A 150 150 0 0 1 150 0 Z', ...S(C.cream) }, g);
+  el('path', { d: 'M 75 -130 A 150 150 0 0 1 150 0 L 120 0 A 120 120 0 0 0 60 -104 Z', fill: C.red }, g);
+  for (let i = 0; i <= 10; i++) { const a = Math.PI * (1 - i / 10); el('path', { d: `M ${Math.cos(a) * 128} ${-Math.sin(a) * 128} L ${Math.cos(a) * 146} ${-Math.sin(a) * 146}`, stroke: C.navy, 'stroke-width': 5 }, g); }
+  el('path', { d: 'M -150 0 A 150 150 0 0 1 150 0 Z', fill: 'none', stroke: C.navy, 'stroke-width': LW }, g);
+  const needle = el('g', {}, g);
+  el('path', { d: 'M 0 -8 L 124 0 L 0 8 Z', fill: C.navy }, needle);
+  el('circle', { cx: 0, cy: 0, r: 16, ...S(col, 5) }, g);
+  txt(g, label, { x: 0, y: 64, 'font-size': 46, 'font-family': F.sans, 'font-weight': 900, fill: C.navy, 'text-anchor': 'middle' });
+  return { g, needle };
+}
+function polaroid(parent, label, drawFn) {
+  const g = el('g', {}, parent);
+  el('rect', { x: -86, y: -96, width: 172, height: 200, rx: 4, ...S(C.cream, 5) }, g);
+  const pic = clipTo(g, 'rect', { x: -70, y: -80, width: 140, height: 130 });
+  el('rect', { x: -70, y: -80, width: 140, height: 130, fill: C.light }, pic);
+  drawFn(el('g', { transform: 'translate(0 -15)' }, pic));
+  el('rect', { x: -70, y: -80, width: 140, height: 130, fill: 'none', stroke: C.navy, 'stroke-width': 4 }, g);
+  txt(g, label, { x: 0, y: 88, 'font-size': 26, 'font-family': F.sans, 'font-weight': 900, fill: C.navy, 'text-anchor': 'middle' });
+  el('circle', { cx: 0, cy: -96, r: 12, ...S(C.red, 4) }, g);
+  return g;
+}
+function sticky(parent, str, col) {
+  const g = el('g', {}, parent);
+  el('rect', { x: -190, y: -80, width: 380, height: 160, ...S(col, 6) }, g);
+  el('rect', { x: -70, y: -96, width: 140, height: 34, fill: C.light, opacity: 0.85, transform: 'rotate(-3)' }, g);
+  txt(g, str, { x: 0, y: 26, 'font-size': 72, 'font-family': F.cute, fill: C.navy, 'text-anchor': 'middle' });
+  return g;
+}
+function folder(parent, label) {
+  const g = el('g', {}, parent);
+  el('path', { d: 'M -300 -200 L -300 -236 Q -300 -246 -290 -246 L -130 -246 Q -120 -246 -114 -236 L -100 -200 Z', ...S(C.caramel) }, g);
+  el('rect', { x: -300, y: -210, width: 600, height: 420, rx: 10, ...S(C.caramel) }, g);
+  halftone(clipTo(g, 'rect', { x: -300, y: -210, width: 600, height: 420 }), { x0: -320, y0: -230, w: 640, h: 460, step: 20, angle: 30, color: C.navy, f: radial(260, 180, 520, 1.3), maxK: 0.5 }).setAttribute('class', 'mul');
+  el('rect', { x: -300, y: -210, width: 600, height: 420, rx: 10, fill: 'none', stroke: C.navy, 'stroke-width': LW }, g);
+  const lab = el('g', { transform: 'translate(-60 -80)' }, g);
+  el('rect', { x: -170, y: -46, width: 340, height: 92, rx: 6, ...S(C.cream, 5) }, lab);
+  txt(lab, label, { x: 0, y: 18, 'font-size': 46, 'font-family': F.sans, 'font-weight': 900, fill: C.navy, 'text-anchor': 'middle' });
+  return g;
+}
+
+// ============================================================
+// 舞台
+// ============================================================
+const world = document.getElementById('world');
+const cam = document.getElementById('cam');
+const flash = document.getElementById('flash');
+const fade = document.getElementById('fade');
+const scenes = [];
+function scene(t0, t1, build) {
+  const g = el('g', {}, world);
+  const s = { g, t0, t1 };
+  s.update = build(g, s);
+  scenes.push(s);
+  return s;
+}
+// 镜头组：缩放中心 (cx, cy)
+function view(g, t, { s = 1, cx = 540, cy = 900, dx = 0, dy = 0 } = {}) {
+  g.setAttribute('transform', `translate(${(cx * (1 - s) + dx).toFixed(2)} ${(cy * (1 - s) + dy).toFixed(2)}) scale(${s.toFixed(4)})`);
+}
+// 章节牌（罪状 N）
+function countHeader(parent, n, title, lines, numFill, dot) {
+  bigNum(parent, String(n), 900, 760, 720, numFill, dot);
+  const chip = chipEl(parent, '罪状' + '一二三四五'[n - 1], { size: 44, fill: C.red });
+  tf(chip.g, 70, 330);
+  const hs = lines.map((ln, i) => HL(parent, ln, 64, 480 + i * 150, 132));
+  return { chip, hs };
+}
+function headerAnim(h, t, t0) {
+  op(h.chip.g, t >= t0 ? 1 : 0);
+  tf(h.chip.g, 70, 330 + 30 * (1 - E.back(seg(t, t0, t0 + 0.35))));
+  h.hs.forEach((c, i) => charsPop(c, t, t0 + 0.15 + i * 0.3, 0.06));
+}
+
+const SHAKES = [], FLASHES = [];
+window.EV = [];
+const ev = (t, type, extra = {}) => window.EV.push({ t: +t.toFixed(3), type, ...extra });
+
+function buildAll() {
+  // ---------------- S1 立案：证物袋 ----------------
+  scene(TL.open, TL.mug, (g) => {
+    bg(g, C.night);
+    halftone(g, { color: C.night2, step: 24, angle: 15, f: radial(540, 860, 760, 0.9), maxK: 0.66 });
+    const v = el('g', {}, g);
+    const bag = evidenceBag(v);
+    const cup = milkTea(bag.content);
+    tf(cup.g, 0, 30, 0.82);
+    const st = stampEl(g, '立案', { size: 200, color: C.red });
+    const t0 = TL.open;
+    ev(t0 + 0.05, 'whoosh'); ev(t0 + 0.42, 'bag'); ev(t0 + 0.55, 'shutter'); ev(t0 + 0.75, 'stamp', { big: 1 });
+    SHAKES.push([t0 + 0.75, 22, 0.35]); FLASHES.push([t0 + 0.55, 0.85]);
+    return (t) => {
+      const u = t - t0;
+      const p = E.back(seg(u, 0.0, 0.42));
+      tf(bag.g, 540, lerp(-500, 880, p), 1, lerp(-8, -3, p));
+      view(v, t, { s: lerp(1, 1.04, seg(u, 0.5, 1.7)), cy: 880 });
+      stampAnim(st, t, t0 + 0.75, 560, 1060, -9);
+    };
+  });
+
+  // ---------------- S2 嫌疑人照 ----------------
+  scene(TL.mug, TL.hide, (g) => {
+    bg(g, C.paper);
+    halftone(g, { color: C.mint, step: 22, angle: 15, f: radial(540, 900, 620, 0.9), maxK: 0.62 });
+    // 身高尺（单位：克）
+    const chart = el('g', {}, g);
+    for (let i = 0; i <= 8; i++) {
+      const y = 1180 - i * 80;
+      el('path', { d: `M 120 ${y} L 960 ${y}`, stroke: C.navy, 'stroke-width': i % 2 ? 3 : 6, opacity: 0.85 }, chart);
+      if (i % 2 === 0) txt(chart, `${i * 5}g`, { x: 112, y: y + 12, 'font-size': 34, 'font-family': F.mono, 'font-weight': 800, fill: C.navy, 'text-anchor': 'end' });
+    }
+    const v = el('g', {}, g);
+    const cube = cubeChar(v);
+    // 名牌
+    const plate = el('g', {}, g);
+    el('rect', { x: -300, y: -70, width: 600, height: 150, rx: 10, fill: C.navy }, plate);
+    txt(plate, '嫌疑人：糖', { x: 0, y: 4, 'font-size': 64, 'font-family': F.sans, 'font-weight': 900, fill: C.cream, 'text-anchor': 'middle' });
+    txt(plate, 'SUGAR · No.001', { x: 0, y: 56, 'font-size': 32, 'font-family': F.mono, 'font-weight': 800, fill: C.yellow, 'text-anchor': 'middle' });
+    const h = HL(g, '嫌疑人', 64, 470, 150);
+    const t0 = TL.mug;
+    ev(t0, 'wipe'); ev(t0 + 0.35, 'plop'); ev(t0 + 0.7, 'shutter'); ev(t0 + 1.25, 'shutter');
+    FLASHES.push([t0 + 0.7, 0.9], [t0 + 1.25, 0.6]);
+    return (t) => {
+      const u = t - t0;
+      charsPop(h, t, t0 + 0.1);
+      const p = seg(u, 0.1, 0.45);
+      const sq = squash(t, t0 + 0.45);
+      tf(cube.g, 540, lerp(1500, 860, E.out(p)), 1.25 / sq, 0, 1.25 * sq);
+      const startled = u > 0.7 && u < 1.1;
+      setCube(cube, { open: startled ? 1.25 : blinkAt(t, [t0 + 1.6]), lid: startled ? 0 : 0.35, brow: startled ? -10 : 14, mouth: startled ? 'o' : 'smirk', lookX: startled ? 0 : 4, armL: startled ? -40 : 0, armR: startled ? 40 : 0 });
+      tf(plate, 540, lerp(1460, 1150, E.back(seg(u, 0.3, 0.7))));
+      view(v, t, { s: lerp(1, 1.06, seg(u, 0.5, 1.9)), cy: 860 });
+    };
+  });
+
+  // ---------------- S3 藏身地点：杯里 8 块方糖 ----------------
+  scene(TL.hide, TL.blood, (g) => {
+    bg(g, C.paper);
+    halftone(g, { color: C.yellow, step: 24, angle: 20, f: radial(820, 640, 700, 1.0), maxK: 0.66 });
+    halftone(g, { color: C.caramel, step: 22, angle: 70, f: edge(1100, 1.6), maxK: 0.6 }).setAttribute('class', 'mul');
+    const h = HL(g, '藏身地点', 64, 430, 130);
+    const v = el('g', {}, g);
+    const cup = milkTea(v);
+    const num = el('g', {}, g);
+    bigNum(num, '30+', 0, 0, 260, C.yellow, C.caramel);
+    txt(num, 'g', { x: 230, y: 0, 'font-size': 120, 'font-family': F.bagel, fill: C.navy });
+    const cubes = []; const t0 = TL.hide;
+    for (let i = 0; i < 8; i++) { const cg = el('g', {}, v); miniCube(cg, 1.15); cubes.push(cg); ev(t0 + 2.3 + i * 0.22, 'ding', { n: i }); }
+    const eq = el('g', {}, g);
+    txt(eq, '≈ 8 块方糖', { x: 0, y: 0, 'font-size': 96, 'font-family': F.serif, 'font-weight': 900, fill: C.navy, 'text-anchor': 'middle' });
+    ev(t0, 'wipe'); ev(t0 + 1.2, 'scan'); ev(t0 + 2.0, 'boom');
+    return (t) => {
+      const u = t - t0;
+      charsPop(h, t, t0 + 0.1);
+      const zoom = lerp(1.0, 1.08, E.io(seg(u, 0.4, 1.6)));
+      tf(cup.g, lerp(540, 330, E.io(seg(u, 2.0, 2.6))), 860, lerp(1.05, 0.85, E.io(seg(u, 2.0, 2.6))) * zoom);
+      op(cup.xr, seg(u, 1.0, 1.5) * (1 - seg(u, 2.2, 2.6)));
+      // 方糖跳出排成两排
+      cubes.forEach((c, i) => {
+        const s0 = 2.3 + i * 0.22, p = seg(u, s0, s0 + 0.4);
+        if (u < s0) { op(c, 0); return; }
+        op(c, 1);
+        const tx = 160 + (i % 4) * 110, ty = 1170 + Math.floor(i / 4) * 0;
+        const x = lerp(330, 620 + (i % 4) * 105, E.out(p)), y = lerp(760, 640 + Math.floor(i / 4) * 110, E.out(p)) - Math.sin(p * Math.PI) * 200;
+        const sq = squash(t, t0 + s0 + 0.4, 0.25);
+        tf(c, x, y, 1 / sq, (1 - p) * 180, sq);
+      });
+      op(num, u > 1.9 ? 1 : 0); tf(num, 690, 1170, E.back(seg(u, 1.9, 2.25)) * 0.85, -4);
+      op(eq, u > 4.0 ? 1 : 0); tf(eq, 780, 920 - 30 * (1 - E.back(seg(u, 4.0, 4.35))), 0.9);
+      view(v, t, { s: 1 });
+    };
+  });
+
+  // ---------------- S4 血液对比：天平 ----------------
+  scene(TL.blood, TL.c1, (g) => {
+    bg(g, C.paper);
+    halftone(g, { color: C.red, step: 22, angle: 15, f: radial(220, 820, 520, 1.3), maxK: 0.58 });
+    halftone(g, { color: C.yellow, step: 24, angle: 65, f: radial(860, 860, 560, 1.1), maxK: 0.64 }).setAttribute('class', 'mul');
+    const h1 = HL(g, '全身血液里', 64, 430, 112);
+    const h2 = HL(g, '只有 4 克', 64, 570, 112, C.navy, C.red);
+    const v = el('g', {}, g);
+    // 支架
+    el('path', { d: 'M 540 1240 L 540 760', stroke: C.navy, 'stroke-width': 16, 'stroke-linecap': 'round' }, v);
+    el('path', { d: 'M 420 1250 L 660 1250', stroke: C.navy, 'stroke-width': 18, 'stroke-linecap': 'round' }, v);
+    const beam = el('g', {}, v);
+    el('path', { d: 'M -360 0 L 360 0', stroke: C.navy, 'stroke-width': 14, 'stroke-linecap': 'round' }, beam);
+    el('circle', { cx: 0, cy: 0, r: 22, ...S(C.yellow, 6) }, beam);
+    const panL = el('g', {}, v), panR = el('g', {}, v);
+    for (const p of [panL, panR]) {
+      el('path', { d: 'M 0 0 L -110 170 M 0 0 L 110 170', stroke: C.navy, 'stroke-width': 5 }, p);
+      el('path', { d: 'M -130 170 Q 0 240 130 170 Z', ...S(C.cream) }, p);
+    }
+    // 左盘：一滴血 + 4g
+    const drop = el('g', { transform: 'translate(0 120)' }, panL);
+    el('path', { d: 'M 0 -60 C 20 -30 40 -10 40 14 C 40 38 22 54 0 54 C -22 54 -40 38 -40 14 C -40 -10 -20 -30 0 -60 Z', ...S(C.red, 6) }, drop);
+    txt(panL, '4g', { x: 0, y: 290, 'font-size': 64, 'font-family': F.bagel, fill: C.navy, 'text-anchor': 'middle' });
+    // 右盘：一堆方糖
+    const pile = el('g', {}, panR);
+    const pc = [];
+    for (let i = 0; i < 8; i++) { const c = el('g', {}, pile); miniCube(c, 0.9); pc.push(c); }
+    txt(panR, '30g+', { x: 0, y: 290, 'font-size': 64, 'font-family': F.bagel, fill: C.navy, 'text-anchor': 'middle' });
+    const times = el('g', {}, g);
+    bigNum(times, '7~8×', 0, 0, 220, C.red, C.navy);
+    const q = chars(g, '？', { x: 900, y: 600, size: 260, family: F.serif, fill: C.red, shadow: { fill: C.caramel, dx: 8, dy: 8 } });
+    const t0 = TL.blood;
+    ev(t0, 'wipe'); ev(t0 + 3.6, 'slam'); ev(t0 + 4.0, 'creak'); ev(t0 + 5.4, 'boom');
+    SHAKES.push([t0 + 3.6, 18, 0.3]);
+    return (t) => {
+      const u = t - t0;
+      charsPop(h1, t, t0 + 0.1); charsPop(h2, t, t0 + 1.0);
+      // 方糖落下 3.4–3.6，横梁倾斜
+      const drop = seg(u, 3.3, 3.6);
+      const tilt = u < 3.6 ? -8 * E.out(seg(u, 0.4, 1.0)) : lerp(-8, 24, E.back(seg(u, 3.6, 4.1)));
+      const a = tilt * Math.PI / 180;
+      tf(beam, 540, 760, 1, tilt);
+      const lx = 540 - 300 * Math.cos(a), ly = 760 - 300 * Math.sin(a);
+      const rx = 540 + 300 * Math.cos(a), ry = 760 + 300 * Math.sin(a);
+      tf(panL, lx, ly); tf(panR, rx, ry);
+      pc.forEach((c, i) => tf(c, -70 + (i % 4) * 46, lerp(-900, 140 - Math.floor(i / 4) * 52, E.in(drop)), 1, (i * 17) % 20 - 10));
+      op(times, u > 5.4 ? 1 : 0); tf(times, 560, 640, E.back(seg(u, 5.4, 5.75)), -5);
+      show(h1.g, u < 5.3); show(h2.g, u < 5.3);
+      charsPop(q, t, t0 + 4.9, 0.06, 0.4, 80);
+      view(v, t, { s: lerp(1, 1.06, seg(u, 3.6, 6.4)), cx: 700, cy: 900 });
+    };
+  });
+
+  // ---------------- S5a 罪状一：血糖猛涨 + 胰腺派信使 ----------------
+  scene(TL.c1, TL.c1b, (g) => {
+    bg(g, C.paper);
+    const hdr = countHeader(g, 1, '', ['累垮胰岛素'], C.yellow, C.caramel);
+    const v = el('g', {}, g);
+    // 血糖曲线卡片
+    const card = el('g', { transform: 'translate(70 700)' }, v);
+    el('rect', { x: 0, y: 0, width: 600, height: 380, rx: 10, ...S(C.cream, 6) }, card);
+    txt(card, '血糖', { x: 24, y: 52, 'font-size': 36, 'font-family': F.sans, 'font-weight': 900, fill: C.navy });
+    el('path', { d: 'M 40 340 L 570 340 M 40 340 L 40 80', stroke: C.navy, 'stroke-width': 5 }, card);
+    const pts = []; for (let i = 0; i <= 60; i++) { const x = i / 60; const y = x < 0.25 ? 0.15 : x < 0.45 ? 0.15 + 0.8 * E.out((x - 0.25) / 0.2) : 0.95 - 0.55 * E.io(clamp((x - 0.45) / 0.55)); pts.push([40 + x * 520, 330 - y * 240]); }
+    const curve = el('path', { d: 'M' + pts.map(p => p.map(n => n.toFixed(1)).join(' ')).join(' L '), fill: 'none', stroke: C.red, 'stroke-width': 10, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, card);
+    const len = 900; curve.setAttribute('stroke-dasharray', len);
+    const boom = chars(card, '猛涨!', { x: 300, y: 120, size: 64, family: F.cute, weight: 400, fill: C.cream, stroke: C.navy, sw: 10 });
+    // 胰腺 + 信使
+    const panc = el('g', { transform: 'translate(820 1110)' }, v);
+    const pb = el('g', { filter: 'url(#boil)' }, panc);
+    el('path', { d: 'M -150 20 C -170 -30 -120 -60 -60 -40 C 0 -20 40 -60 110 -50 C 170 -40 180 20 130 40 C 60 70 -20 50 -80 60 C -130 66 -146 50 -150 20 Z', ...S(C.caramel) }, pb);
+    halftone(clipTo(pb, 'path', { d: 'M -150 20 C -170 -30 -120 -60 -60 -40 C 0 -20 40 -60 110 -50 C 170 -40 180 20 130 40 C 60 70 -20 50 -80 60 C -130 66 -146 50 -150 20 Z' }), { x0: -180, y0: -80, w: 380, h: 160, step: 16, angle: 40, color: C.navy, f: () => 0.35, maxK: 0.5 }).setAttribute('class', 'mul');
+    txt(panc, '胰腺', { x: 0, y: -80, 'font-size': 40, 'font-family': F.sans, 'font-weight': 900, fill: C.navy, 'text-anchor': 'middle' });
+    const alarm = el('g', { transform: 'translate(980 980)' }, v);
+    el('path', { d: 'M -40 30 L -30 -20 Q 0 -50 30 -20 L 40 30 Z', ...S(C.red, 6) }, alarm);
+    const ray = el('path', { d: 'M -70 -40 L -50 -30 M 70 -40 L 50 -30 M 0 -80 L 0 -60', stroke: C.red, 'stroke-width': 8, 'stroke-linecap': 'round' }, alarm);
+    const ms = []; for (let i = 0; i < 4; i++) ms.push(messenger(v));
+    const t0 = TL.c1;
+    ev(t0, 'hit'); ev(t0 + 2.3, 'riser'); ev(t0 + 4.4, 'alarm');
+    for (let i = 0; i < 4; i++) ev(t0 + 4.8 + i * 0.25, 'pop', { n: i });
+    SHAKES.push([t0, 14, 0.25]);
+    return (t) => {
+      const u = t - t0;
+      headerAnim(hdr, t, t0);
+      op(card, u > 2.0 ? 1 : 0); tf(card, 70, lerp(1500, 720, E.back(seg(u, 2.0, 2.4))));
+      curve.setAttribute('stroke-dashoffset', (len * (1 - E.io(seg(u, 2.4, 3.6)))).toFixed(1));
+      charsPop(boom, t, t0 + 3.0, 0.05);
+      op(panc, u > 4.2 ? 1 : 0);
+      tf(panc, 820, 1110 + 40 * (1 - E.back(seg(u, 4.2, 4.5))), 1, 0);
+      op(alarm, u > 4.4 ? 1 : 0); op(ray, Math.floor(u * 6) % 2);
+      ms.forEach((m, i) => {
+        const s0 = 4.8 + i * 0.25, p = seg(u, s0, s0 + 0.9);
+        op(m, u > s0 ? 1 : 0);
+        const x = lerp(820, 200 + i * 140, E.out(p)), y = lerp(1110, 1150 - (i % 2) * 70, E.out(p)) - Math.sin(p * Math.PI) * 160;
+        tf(m, x, y, 0.85 + 0.15 * Math.abs(Math.sin(u * 9 + i)), Math.sin(u * 10 + i) * 6);
+      });
+      view(v, t, { s: lerp(1, 1.05, seg(u, 2.0, 6.8)), cx: 400, cy: 900 });
+    };
+  });
+
+  // ---------------- S5b 胰岛素抵抗：细胞已读不回 ----------------
+  scene(TL.c1b, TL.c1c, (g) => {
+    bg(g, C.paper);
+    halftone(g, { color: C.mint, step: 22, angle: 15, f: radial(540, 980, 700, 1.0), maxK: 0.6 });
+    const h = HL(g, '胰岛素抵抗', 64, 430, 132, C.navy, C.mint);
+    const v = el('g', {}, g);
+    const cell = cellEl(v);
+    tf(cell.g, 640, 960, 1.15);
+    const ms = []; for (let i = 0; i < 3; i++) ms.push(messenger(v));
+    const knock = chars(g, '咚咚咚', { x: 120, y: 760, size: 64, family: F.cute, weight: 400, fill: C.cream, stroke: C.navy, sw: 10 });
+    const zz = chars(g, 'Zzz', { x: 780, y: 700, size: 70, family: F.cute, weight: 400, fill: C.navy });
+    const t0 = TL.c1b;
+    ev(t0, 'wipe');
+    for (let k = 0; k < 3; k++) for (let i = 0; i < 3; i++) ev(t0 + 0.9 + k * 1.3 + i * 0.12, 'knock');
+    ev(t0 + 3.4, 'buzzer');
+    return (t) => {
+      const u = t - t0;
+      charsPop(h, t, t0 + 3.2, 0.06);
+      // 信使敲门，一次比一次没劲
+      ms.forEach((m, i) => {
+        const base = 0.2 + i * 0.15;
+        const tired = seg(u, 1.0, 4.6);
+        const k = Math.max(0, Math.sin((u - 0.9) * 14 + i)) * (1 - tired * 0.8);
+        tf(m, lerp(-120, 200 - i * 90, E.out(seg(u, base, base + 0.5))) + k * 10, 1090 + i * 40 + tired * 30, 0.9, -10 * k + tired * 18);
+      });
+      op(knock.g, u > 0.9 ? 1 - seg(u, 3.6, 3.9) : 0);
+      charsPop(knock, t, t0 + 0.9, 0.1);
+      op(zz.g, u > 1.6 ? 1 : 0); zz.g.setAttribute("transform", `translate(0 ${(-10 * Math.sin(u * 3)).toFixed(1)})`);
+      view(v, t, { s: lerp(1, 1.12, E.io(seg(u, 0.4, 4.6))), cx: 380, cy: 1020 });
+    };
+  });
+
+  // ---------------- S5c 研究数据：18% ----------------
+  scene(TL.c1c, TL.c2, (g) => {
+    bg(g, C.navy);
+    halftone(g, { color: C.night2, step: 24, angle: 15, f: radial(540, 900, 900, 0.8), maxK: 0.66 });
+    const v = el('g', {}, g);
+    const doc = el('g', {}, v);
+    el('rect', { x: -420, y: -460, width: 840, height: 920, rx: 6, ...S(C.cream, 6) }, doc);
+    txt(doc, '研究发现', { x: -370, y: -360, 'font-size': 56, 'font-family': F.sans, 'font-weight': 900, fill: C.navy });
+    el('path', { d: 'M -370 -330 L 370 -330', stroke: C.navy, 'stroke-width': 5 }, doc);
+    // 一份饮料 = 一个杯子图标
+    const ic = el('g', { transform: 'translate(-250 -170) scale(0.42)' }, doc);
+    milkTea(ic, { label: '+1份', pearls: false });
+    txt(doc, '每天多喝', { x: -60, y: -210, 'font-size': 52, 'font-family': F.sans, 'font-weight': 900, fill: C.navy });
+    txt(doc, '一份含糖饮料', { x: -60, y: -140, 'font-size': 52, 'font-family': F.sans, 'font-weight': 900, fill: C.navy });
+    txt(doc, '2型糖尿病风险', { x: -370, y: 30, 'font-size': 60, 'font-family': F.sans, 'font-weight': 900, fill: C.navy });
+    const big = el('g', {}, doc);
+    bigNum(big, '18%', 0, 0, 300, C.red, C.navy);
+    const arrow = el('path', { d: 'M -40 60 L 0 0 L 40 60 M 0 0 L 0 140', fill: 'none', stroke: C.red, 'stroke-width': 26, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, doc);
+    txt(doc, '约', { x: -360, y: 320, 'font-size': 90, 'font-family': F.serif, 'font-weight': 900, fill: C.navy });
+    const t0 = TL.c1c;
+    ev(t0, 'wipe'); ev(t0 + 0.2, 'paper'); ev(t0 + 2.7, 'boom'); ev(t0 + 2.6, 'riser');
+    SHAKES.push([t0 + 2.7, 14, 0.3]);
+    return (t) => {
+      const u = t - t0;
+      tf(doc, 540, lerp(1900, 860, E.back(seg(u, 0.1, 0.55))), 1, lerp(6, -2, seg(u, 0.1, 0.6)));
+      op(big, u > 2.6 ? 1 : 0); tf(big, 70, 330, E.back(seg(u, 2.6, 2.95)));
+      op(arrow, u > 2.8 ? 1 : 0); arrow.setAttribute('transform', `translate(330 ${150 - 20 * E.back(seg(u, 2.8, 3.1))})`);
+      // 快速变焦进网点
+      const z = u < 2.4 ? 1 : lerp(1, 1.35, E.io(seg(u, 2.4, 3.2)));
+      view(v, t, { s: z, cx: 540, cy: 1160 });
+    };
+  });
+
+  // ---------------- S6 罪状二：肝脏 = 脂肪仓库 ----------------
+  scene(TL.c2, TL.c3, (g) => {
+    bg(g, C.paper);
+    const hdr = countHeader(g, 2, '', ['肝脏变成', '脂肪仓库'], C.caramel, C.navy);
+    const v = el('g', {}, g);
+    halftone(v, { color: C.yellow, step: 22, angle: 20, f: radial(560, 1040, 520, 1.2), maxK: 0.62 });
+    const liver = liverEl(v);
+    tf(liver.g, 560, 1050, 1);
+    const crates = []; for (let i = 0; i < 4; i++) crates.push(crate(v));
+    const fatT = chars(g, '脂肪肝', { x: 540, y: 1250, size: 96, family: F.serif, fill: C.red, anchor: 'middle', shadow: { fill: C.caramel, dx: 6, dy: 6 } });
+    const t0 = TL.c2;
+    ev(t0, 'hit'); SHAKES.push([t0, 14, 0.25]);
+    for (let i = 0; i < 4; i++) ev(t0 + 2.8 + i * 0.5, 'beep', { n: i });
+    for (let i = 0; i < 6; i++) ev(t0 + 5.2 + i * 0.35, 'plop', { n: i });
+    ev(t0 + 8.1, 'stampSmall');
+    return (t) => {
+      const u = t - t0;
+      headerAnim(hdr, t, t0);
+      op(liver.g, u > 0.7 ? 1 : 0);
+      const sq = squash(t, t0 + 1.1, 0.15);
+      const swell = 1 + 0.12 * E.io(seg(u, 5.0, 8.0));
+      tf(liver.g, 560, lerp(1700, 1050, E.out(seg(u, 0.7, 1.1))), swell / sq, 0, swell * sq);
+      crates.forEach((c, i) => {
+        const s0 = 2.6 + i * 0.5, p = seg(u, s0, s0 + 0.8);
+        op(c, p > 0 && p < 1 ? 1 : 0);
+        tf(c, lerp(1160, 520, E.io(p)), 1090 + Math.abs(Math.sin(p * 9)) * -14, 0.9 * (1 - 0.6 * seg(p, 0.75, 1)));
+      });
+      liver.drops.forEach((d, i) => {
+        const s0 = 5.0 + d.t * 2.8;
+        const p = E.back(seg(u, s0, s0 + 0.3));
+        d.g.setAttribute('transform', `translate(${d.x} ${d.y}) scale(${p.toFixed(3)})`);
+      });
+      op(fatT.g, u > 8.0 ? 1 : 0); charsPop(fatT, t, t0 + 8.0, 0.08);
+      view(v, t, { s: lerp(1, 1.08, E.io(seg(u, 2.2, 9.6))), cx: 560, cy: 1050 });
+    };
+  });
+
+  // ---------------- S7 罪状三：胶原蛋白被糖粘住 ----------------
+  scene(TL.c3, TL.c4, (g) => {
+    bg(g, C.paper);
+    const hdr = countHeader(g, 3, '', ['让皮肤变老'], C.mint, C.navy);
+    const v = el('g', {}, g);
+    // 皮肤剖面：上层表皮 + 弹簧网
+    const skinTop = el('path', { d: '', ...S(C.caramel) }, v);
+    const springs = [];
+    for (let i = 0; i < 6; i++) springs.push(el('path', { d: '', fill: 'none', stroke: C.mint, 'stroke-width': 12, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, v));
+    el('rect', { x: 60, y: 1180, width: 960, height: 60, ...S(C.caramel) }, v);
+    const glue = [];
+    for (let i = 0; i < 6; i++) { const c = el('g', {}, v); miniCube(c, 0.8); glue.push(c); }
+    const tag = el('g', {}, g);
+    el('rect', { x: -260, y: -56, width: 520, height: 112, rx: 12, ...S(C.yellow, 6) }, tag);
+    txt(tag, '糖化终产物', { x: 0, y: 4, 'font-size': 54, 'font-family': F.sans, 'font-weight': 900, fill: C.navy, 'text-anchor': 'middle' });
+    txt(tag, 'AGEs', { x: 0, y: 46, 'font-size': 30, 'font-family': F.mono, 'font-weight': 800, fill: C.navy, 'text-anchor': 'middle' });
+    const boing = chars(g, 'boing~', { x: 700, y: 760, size: 64, family: F.cute, weight: 400, fill: C.cream, stroke: C.navy, sw: 10 });
+    const t0 = TL.c3;
+    ev(t0, 'hit'); SHAKES.push([t0, 14, 0.25]);
+    ev(t0 + 2.0, 'boing'); for (let i = 0; i < 6; i++) ev(t0 + 2.6 + i * 0.25, 'sticky', { n: i });
+    ev(t0 + 4.4, 'stampSmall'); ev(t0 + 6.4, 'creak');
+    return (t) => {
+      const u = t - t0;
+      headerAnim(hdr, t, t0);
+      const stiff = E.io(seg(u, 3.0, 5.0)), sag = E.io(seg(u, 6.2, 8.0));
+      const bounce = (1 - stiff) * Math.sin(u * 9) * 22 * seg(u, 1.6, 2.0);
+      // 表皮：皱纹逐渐出现
+      let d = 'M 60 820';
+      for (let x = 60; x <= 1020; x += 20) d += ` L ${x} ${(820 + bounce + sag * (40 + 26 * Math.sin(x / 34))).toFixed(1)}`;
+      d += ' L 1020 870 L 60 870 Z';
+      skinTop.setAttribute('d', d.replace('870 L 60 870', `${880 + sag * 60} L 60 ${880 + sag * 60}`));
+      springs.forEach((sp, i) => {
+        const x = 140 + i * 160, top = 880 + bounce + sag * 50, bot = 1180;
+        let p = `M ${x} ${top}`;
+        const n = 9, amp = lerp(36, 8, stiff);
+        for (let k = 1; k <= n; k++) p += ` L ${x + (k % 2 ? amp : -amp)} ${lerp(top, bot, k / n).toFixed(1)}`;
+        sp.setAttribute('d', p);
+        sp.setAttribute('stroke', stiff > 0.5 ? C.caramel : C.mint);
+      });
+      glue.forEach((c, i) => {
+        const s0 = 2.6 + i * 0.25, p = seg(u, s0, s0 + 0.35);
+        op(c, u > s0 ? 1 : 0);
+        tf(c, 140 + i * 160 + 10, lerp(500, 1030 + (i % 2) * 40, E.in(p)), 1, (1 - p) * 200);
+      });
+      op(boing.g, u > 1.6 && u < 3.0 ? 1 : 0); charsPop(boing, t, t0 + 1.6, 0.05);
+      op(tag, u > 4.4 ? 1 : 0); tf(tag, 540, 720 - 40 * (1 - E.back(seg(u, 4.4, 4.75))), 1, -3);
+      // 网点放大（看更近）
+      const z = lerp(1, 1.18, E.io(seg(u, 5.6, 8.4)));
+      view(v, t, { s: z, cx: 540, cy: 900 });
+    };
+  });
+
+  // ---------------- S8 罪状四：牙齿 ----------------
+  scene(TL.c4, TL.c5, (g) => {
+    bg(g, C.paper);
+    const hdr = countHeader(g, 4, '', ['腐蚀牙齿'], C.red, C.navy);
+    const v = el('g', {}, g);
+    const tooth = toothEl(v);
+    tf(tooth.g, 560, 1000, 1.25);
+    const gs = []; for (let i = 0; i < 3; i++) gs.push(germ(v, [C.mint, C.yellow, C.caramel][i]));
+    const bubbles = el('g', {}, v); const bs = [];
+    for (let i = 0; i < 10; i++) bs.push(el('circle', { r: 0, fill: C.yellow, stroke: C.navy, 'stroke-width': 4 }, bubbles));
+    const crunch = chars(g, '咔嚓', { x: 160, y: 760, size: 72, family: F.cute, weight: 400, fill: C.cream, stroke: C.navy, sw: 10 });
+    const t0 = TL.c4;
+    ev(t0, 'hit'); SHAKES.push([t0, 18, 0.25]);
+    for (let i = 0; i < 6; i++) ev(t0 + 1.8 + i * 0.3, 'munch', { n: i });
+    for (let i = 0; i < 4; i++) ev(t0 + 3.6 + i * 0.4, 'crack', { n: i });
+    return (t) => {
+      const u = t - t0;
+      headerAnim(hdr, t, t0);
+      op(tooth.g, u > 0.6 ? 1 : 0);
+      tf(tooth.g, 560, lerp(1800, 1000, E.back(seg(u, 0.6, 1.0))), 1.25);
+      gs.forEach((gm, i) => {
+        const x = [330, 560, 790][i], y = [780, 740, 790][i];
+        op(gm.g, u > 1.4 + i * 0.15 ? 1 : 0);
+        tf(gm.g, x, y + Math.sin(u * 12 + i) * 6 - 30 * (1 - E.back(seg(u, 1.4 + i * 0.15, 1.75 + i * 0.15))), 1);
+        gm.mouth.setAttribute('ry', (6 + 8 * Math.abs(Math.sin(u * 14 + i))).toFixed(1));
+      });
+      bs.forEach((b, i) => {
+        const s0 = 2.2 + i * 0.18, p = seg(u, s0, s0 + 1.2);
+        b.setAttribute('cx', (300 + (i * 97) % 520).toFixed(1));
+        b.setAttribute('cy', (820 - p * 160).toFixed(1));
+        b.setAttribute('r', (p > 0 && p < 1 ? 10 + 14 * Math.sin(p * Math.PI) : 0).toFixed(1));
+      });
+      tooth.holes.forEach((hg, i) => {
+        const p = E.back(seg(u, 3.6 + i * 0.4, 3.9 + i * 0.4));
+        op(hg, p > 0 ? 1 : 0);
+      });
+      op(crunch.g, u > 3.6 ? 1 : 0); charsPop(crunch, t, t0 + 3.6, 0.06);
+      view(v, t, { s: lerp(1, 1.1, E.io(seg(u, 1.0, 5.6))), cx: 560, cy: 960 });
+    };
+  });
+
+  // ---------------- S9 罪状五：变胖、不顶饱 ----------------
+  scene(TL.c5, TL.board, (g) => {
+    bg(g, C.paper);
+    const hdr = countHeader(g, 5, '', ['悄悄让你', '变胖'], C.yellow, C.red);
+    const v = el('g', {}, g);
+    // 腰带
+    const belt = el('g', { transform: 'translate(0 0)' }, v);
+    const bellyD = 'M 80 760 Q 540 700 1000 760 L 1000 960 Q 540 1040 80 960 Z';
+    el('path', { d: bellyD, ...S(C.light) }, belt);
+    el('path', { d: 'M 80 830 Q 540 790 1000 830 L 1000 900 Q 540 870 80 900 Z', ...S(C.navy, 5) }, belt);
+    for (let i = 0; i < 5; i++) el('circle', { cx: 380 + i * 60, cy: 848 - Math.sin(i / 4 * 3.14) * 4, r: 9, fill: C.cream }, belt);
+    const buckle = el('g', {}, belt);
+    el('rect', { x: -60, y: -55, width: 120, height: 110, rx: 14, fill: 'none', stroke: C.yellow, 'stroke-width': 16 }, buckle);
+    el('rect', { x: -60, y: -55, width: 120, height: 110, rx: 14, fill: 'none', stroke: C.navy, 'stroke-width': 4 }, buckle);
+    el('path', { d: 'M -10 0 L 60 0', stroke: C.yellow, 'stroke-width': 12 }, buckle);
+    const g1 = gauge(v, '热量', C.red), g2 = gauge(v, '饱腹感', C.mint);
+    const t0 = TL.c5;
+    ev(t0, 'hit'); SHAKES.push([t0, 14, 0.25]);
+    for (let i = 0; i < 3; i++) ev(t0 + 2.2 + i * 0.6, 'click', { n: i });
+    ev(t0 + 4.8, 'alarm'); ev(t0 + 5.8, 'deflate');
+    return (t) => {
+      const u = t - t0;
+      headerAnim(hdr, t, t0);
+      op(belt, u > 1.2 ? 1 : 0);
+      tf(belt, 0, lerp(700, -40, E.back(seg(u, 1.2, 1.6))), 1);
+      const notch = Math.min(3, Math.floor(seg(u, 2.2, 4.0) * 3 + (u >= 2.2 ? 1 : 0)));
+      const bx = 380 + 60 * notch;
+      tf(buckle, bx - 70, 860 + 8 * squash(t, t0 + 2.2 + (notch - 1) * 0.6, 1, 12) - 8, 1);
+      op(g1.g, u > 4.0 ? 1 : 0); op(g2.g, u > 4.0 ? 1 : 0);
+      tf(g1.g, 300, 1160 - 40 * (1 - E.back(seg(u, 4.0, 4.35))), 0.92);
+      tf(g2.g, 780, 1160 - 40 * (1 - E.back(seg(u, 4.15, 4.5))), 0.92);
+      const a1 = lerp(-180, -12, E.out(seg(u, 4.4, 5.0))) + (u > 5 ? Math.sin(u * 40) * 2 : 0);
+      const a2 = lerp(-180, -160, E.out(seg(u, 5.6, 6.2)));
+      g1.needle.setAttribute('transform', `rotate(${a1.toFixed(2)})`);
+      g2.needle.setAttribute('transform', `rotate(${a2.toFixed(2)})`);
+      view(v, t, { s: 1 + 0.006 * Math.exp(-((u % 0.652) / 0.07)) });
+    };
+  });
+
+  // ---------------- S10 证据板（标志镜头：拉远） ----------------
+  scene(TL.board, TL.disguise, (g) => {
+    bg(g, C.night);
+    const v = el('g', {}, g);
+    // 软木板
+    el('rect', { x: 40, y: 260, width: 1000, height: 1300, rx: 14, ...S(C.caramel) }, v);
+    halftone(clipTo(v, 'rect', { x: 40, y: 260, width: 1000, height: 1300 }), { x0: 40, y0: 260, w: 1000, h: 1300, step: 18, angle: 35, color: C.navy, f: (x, y) => 0.25 + 0.2 * Math.sin(x * 0.05) * Math.sin(y * 0.045), maxK: 0.45 }).setAttribute('class', 'mul');
+    // 人体轮廓
+    el('path', { d: 'M 540 380 C 600 380 630 430 630 480 C 630 540 600 570 570 580 L 690 620 C 730 640 740 700 740 760 L 740 1000 L 690 1000 L 680 800 L 670 1080 L 640 1420 L 570 1420 L 550 1100 L 530 1100 L 510 1420 L 440 1420 L 410 1080 L 400 800 L 390 1000 L 340 1000 L 340 760 C 340 700 350 640 390 620 L 510 580 C 480 570 450 540 450 480 C 450 430 480 380 540 380 Z', fill: C.light, stroke: C.navy, 'stroke-width': 6, 'stroke-dasharray': '18 10' }, v);
+    const cup = el('g', { transform: 'translate(170 1380) scale(0.36)' }, v); milkTea(cup);
+    const spots = [
+      ['胰岛素', 700, 760, (p) => { el('path', { d: 'M -60 30 L -20 30 L 0 -40 L 20 40 L 60 -20', fill: 'none', stroke: C.red, 'stroke-width': 9 }, p); }],
+      ['脂肪肝', 380, 820, (p) => { el('ellipse', { cx: 0, cy: 0, rx: 58, ry: 36, ...S(C.caramel, 5) }, p); el('circle', { cx: 10, cy: 0, r: 16, ...S(C.yellow, 4) }, p); }],
+      ['皮肤', 860, 480, (p) => { el('path', { d: 'M -60 0 Q -30 -20 0 0 T 60 0', fill: 'none', stroke: C.navy, 'stroke-width': 8 }, p); el('path', { d: 'M -60 24 Q -30 4 0 24 T 60 24', fill: 'none', stroke: C.navy, 'stroke-width': 8 }, p); }],
+      ['牙齿', 260, 470, (p) => { el('path', { d: 'M -40 -40 Q 0 -60 40 -40 L 30 40 L 10 20 L -10 40 L -30 40 Z', ...S(C.cream, 5) }, p); el('circle', { cx: 0, cy: -10, r: 12, fill: C.navy }, p); }],
+      ['腰围', 860, 1110, (p) => { el('rect', { x: -60, y: -18, width: 120, height: 36, ...S(C.navy, 4) }, p); el('rect', { x: -20, y: -26, width: 40, height: 52, fill: 'none', stroke: C.yellow, 'stroke-width': 8 }, p); }],
+    ];
+    const strings = el('g', {}, v);
+    const pins = spots.map(([lab, x, y, fn], i) => {
+      const pg = polaroid(v, lab, fn); return { pg, x, y, rot: (i * 7) % 14 - 7 };
+    });
+    const ls = spots.map(([, x, y]) => el('path', { d: `M 170 1300 L ${x} ${y - 96}`, stroke: C.red, 'stroke-width': 5, fill: 'none' }, strings));
+    const t0 = TL.board;
+    ev(t0, 'whoosh'); for (let i = 0; i < 5; i++) ev(t0 + 0.5 + i * 0.12, 'pin', { n: i });
+    ev(t0 + 1.3, 'twang'); SHAKES.push([t0 + 1.3, 10, 0.3]);
+    return (t) => {
+      const u = t - t0;
+      pins.forEach((p, i) => tf(p.pg, p.x, p.y, 0.95, p.rot + (u > 1.3 ? Math.sin((u - 1.3) * 18) * 4 * Math.exp(-(u - 1.3) * 4) : 0)));
+      ls.forEach((l, i) => { const p = seg(u, 0.5 + i * 0.12, 0.9 + i * 0.12); l.setAttribute('stroke-dasharray', `${(1400 * p).toFixed(0)} 2000`); });
+      view(v, t, { s: lerp(2.2, 1.0, E.io(seg(u, 0, 1.6))), cx: 700, cy: 760 });
+    };
+  });
+
+  // ---------------- S11 伪装：涂黑条揭开 ----------------
+  scene(TL.disguise, TL.verdict, (g) => {
+    bg(g, C.paper);
+    halftone(g, { color: C.caramel, step: 22, angle: 15, f: edge(1000, 1.4), maxK: 0.62 });
+    const h = HL(g, '它的伪装', 64, 430, 132);
+    const v = el('g', {}, g);
+    const cup = milkTea(v, { label: '不另外加糖' });
+    const peek = cubeChar(v, {});
+    // 涂黑条
+    const bars = [];
+    for (let i = 0; i < 3; i++) bars.push(el('rect', { x: -170, y: -40, width: 340, height: 80, fill: C.navy }, v));
+    // 检测单
+    const slip = el('g', {}, g);
+    el('rect', { x: -300, y: -180, width: 600, height: 360, rx: 6, ...S(C.cream, 6) }, slip);
+    txt(slip, '检测报告', { x: -260, y: -110, 'font-size': 46, 'font-family': F.sans, 'font-weight': 900, fill: C.navy });
+    for (let i = 0; i < 3; i++) el('path', { d: `M -260 ${-70 + i * 26} L ${120 - i * 60} ${-70 + i * 26}`, stroke: C.navy, 'stroke-width': 6, opacity: 0.35 }, slip);
+    txt(slip, '每100g 含糖', { x: -260, y: 60, 'font-size': 46, 'font-family': F.sans, 'font-weight': 900, fill: C.navy });
+    const fig = el('g', { transform: 'translate(160 120)' }, slip);
+    bigNum(fig, '≈4g', 0, 0, 150, C.red, C.navy);
+    const t0 = TL.disguise;
+    ev(t0, 'wipe'); ev(t0 + 2.2, 'tape'); ev(t0 + 2.6, 'tape'); ev(t0 + 3.0, 'tape'); ev(t0 + 4.2, 'printer'); ev(t0 + 5.0, 'boom');
+    SHAKES.push([t0 + 5.0, 12, 0.25]);
+    return (t) => {
+      const u = t - t0;
+      charsPop(h, t, t0 + 0.1);
+      const toSide = E.io(seg(u, 3.8, 4.4));
+      tf(cup.g, lerp(540, 280, toSide), lerp(900, 800, toSide), lerp(1.05, 0.72, toSide));
+      // 方糖从杯后探头
+      const pk = E.back(seg(u, 0.8, 1.2)) * (1 - seg(u, 3.6, 3.9));
+      tf(peek.g, lerp(540, 300, toSide) + 230 * pk, 900 - 40, 0.62, 18 * pk);
+      op(peek.g, pk > 0.02 ? 1 : 0);
+      setCube(peek, { open: 1, lid: 0.5, brow: 18, mouth: 'smirk', lookX: -8, armL: -30 });
+      // 涂黑条：先盖上，再一根根撕开（贴在标签上）
+      bars.forEach((b, i) => {
+        const on = E.out(seg(u, 0.3 + i * 0.12, 0.5 + i * 0.12));
+        const off = seg(u, 2.2 + i * 0.4, 2.5 + i * 0.4);
+        const cx = lerp(540, 300, toSide), cy = lerp(900, 820, toSide) + 40 * lerp(1.05, 0.78, toSide);
+        const sc = lerp(1.05, 0.78, toSide);
+        b.setAttribute('transform', `translate(${cx + off * 700} ${cy + (i - 1) * 22 * sc - off * 200}) rotate(${-4 + off * 40}) scale(${sc * on} ${sc * 0.36})`);
+        op(b, on * (1 - off));
+      });
+      op(slip, u > 4.1 ? 1 : 0);
+      tf(slip, lerp(1400, 700, E.back(seg(u, 4.1, 4.5))), 1060, 0.86, 3);
+      view(v, t, { s: lerp(1, 1.1, E.io(seg(u, 0.4, 2.2))), cx: 540, cy: 900 });
+    };
+  });
+
+  // ---------------- S12 宣判：尺子与越线 ----------------
+  scene(TL.verdict, TL.close, (g) => {
+    bg(g, C.paper);
+    halftone(g, { color: C.yellow, step: 24, angle: 15, f: radial(540, 960, 900, 0.9), maxK: 0.5 });
+    const h = HL(g, '宣判', 64, 440, 170, C.navy, C.red);
+    const book = el('g', {}, g);
+    el('rect', { x: 0, y: -60, width: 600, height: 110, rx: 8, ...S(C.mint, 6) }, book);
+    txt(book, '《中国居民膳食指南》', { x: 300, y: 12, 'font-size': 44, 'font-family': F.sans, 'font-weight': 900, fill: C.cream, 'text-anchor': 'middle' });
+    const v = el('g', {}, g);
+    // 尺：0–60g 映射到 y 1240..640
+    const yOf = (gr) => 1240 - gr * 10;
+    const ruler = el('g', {}, v);
+    el('rect', { x: 120, y: 620, width: 120, height: 640, rx: 8, ...S(C.cream, 6) }, ruler);
+    for (let gr = 0; gr <= 60; gr += 5) {
+      el('path', { d: `M 240 ${yOf(gr)} L ${gr % 10 ? 205 : 185} ${yOf(gr)}`, stroke: C.navy, 'stroke-width': 5 }, ruler);
+      if (gr % 10 === 0) txt(ruler, `${gr}`, { x: 140, y: yOf(gr) + 12, 'font-size': 32, 'font-family': F.mono, 'font-weight': 800, fill: C.navy });
+    }
+    // 两条线
+    const line50 = el('g', {}, v), line25 = el('g', {}, v);
+    el('path', { d: `M 250 ${yOf(50)} L 1000 ${yOf(50)}`, stroke: C.red, 'stroke-width': 10, 'stroke-dasharray': '30 14' }, line50);
+    txt(line50, '上限 50g', { x: 990, y: yOf(50) - 22, 'font-size': 48, 'font-family': F.sans, 'font-weight': 900, fill: C.red, 'text-anchor': 'end' });
+    el('path', { d: `M 250 ${yOf(25)} L 1000 ${yOf(25)}`, stroke: C.mint, 'stroke-width': 10, 'stroke-dasharray': '30 14' }, line25);
+    txt(line25, '最好 25g 以下', { x: 990, y: yOf(25) + 62, 'font-size': 48, 'font-family': F.sans, 'font-weight': 900, fill: C.mint, 'text-anchor': 'end' });
+    // 奶茶糖量柱
+    const bar = el('rect', { x: 380, width: 220, rx: 6, ...S(C.caramel, 6) }, v);
+    const cupIc = el('g', {}, v); milkTea(cupIc, { pearls: true });
+    const st = stampEl(g, '越线', { size: 210, color: C.red });
+    const t0 = TL.verdict;
+    ev(t0 - 0.0, 'gavel'); ev(t0 + 3.4, 'line'); ev(t0 + 5.9, 'line'); ev(t0 + 8.0, 'riser');
+    ev(t0 + 10.75, 'stamp', { big: 1 });
+    SHAKES.push([t0 + 10.75, 26, 0.45]); FLASHES.push([t0 + 10.75, 0.5]);
+    return (t) => {
+      const u = t - t0;
+      charsPop(h, t, t0 + 0.15, 0.1, 0.45, 100);
+      op(book, u > 0.8 ? 1 : 0); tf(book, 64, 580 - 30 * (1 - E.back(seg(u, 0.8, 1.15))));
+      op(ruler, u > 3.0 ? 1 : 0); tf(ruler, -300 * (1 - E.out(seg(u, 3.0, 3.4))), 0);
+      const l50 = seg(u, 3.4, 3.9), l25 = seg(u, 5.9, 6.4);
+      line50.setAttribute('clip-path', ''); op(line50, l50); tf(line50, -300 * (1 - E.out(l50)), 0);
+      op(line25, l25); tf(line25, -300 * (1 - E.out(l25)), 0);
+      // 糖量柱涨到 32g 越过 25 线
+      const fill = 32 * E.io(seg(u, 8.0, 9.8));
+      bar.setAttribute('y', yOf(fill)); bar.setAttribute('height', Math.max(0, fill * 10));
+      op(bar, u > 7.9 ? 1 : 0);
+      op(cupIc, u > 7.8 ? 1 : 0); tf(cupIc, 490, yOf(fill) - 150, 0.36);
+      stampAnim(st, t, t0 + 10.75, 700, 860, -10);
+      view(v, t, { s: lerp(1, 1.06, E.io(seg(u, 8.0, 10.6))), cx: 520, cy: 980 });
+    };
+  });
+
+  // ---------------- S13 判决 + 结案：抽屉 ----------------
+  scene(TL.close, TL.end, (g) => {
+    bg(g, C.paper);
+    halftone(g, { color: C.mint, step: 22, angle: 15, f: radial(540, 900, 760, 0.9), maxK: 0.55 });
+    const v = el('g', {}, g);
+    const s1 = sticky(v, '别天天喝', C.yellow), s2 = sticky(v, '别喝全糖', C.mint);
+    const fd = el('g', {}, v); folder(fd, '案卷：糖');
+    const drawer = el('g', {}, v);
+    // 抽屉：一排同样的案卷
+    el('rect', { x: 20, y: 1220, width: 1040, height: 420, rx: 10, ...S(C.navy) }, drawer);
+    for (let i = 0; i < 8; i++) {
+      const fg = el('g', { transform: `translate(${90 + i * 128} 1230)` }, drawer);
+      el('rect', { x: -56, y: -140, width: 112, height: 170, rx: 6, ...S(C.caramel, 5) }, fg);
+      txt(fg, '奶茶', { x: 0, y: -90, 'font-size': 30, 'font-family': F.sans, 'font-weight': 900, fill: C.navy, 'text-anchor': 'middle' });
+    }
+    el('rect', { x: 20, y: 1240, width: 1040, height: 60, fill: C.night2 }, drawer);
+    const cube = cubeChar(v);
+    const st = stampEl(g, '结案', { size: 200, color: C.red });
+    const t0 = TL.close;
+    ev(t0, 'wipe'); ev(t0 + 1.2, 'paper'); ev(t0 + 2.0, 'paper'); ev(t0 + 4.15, 'stamp', { big: 1 }); ev(t0 + 4.9, 'drawer');
+    SHAKES.push([t0 + 4.15, 22, 0.35]);
+    return (t) => {
+      const u = t - t0;
+      op(s1, u > 1.2 ? 1 : 0); op(s2, u > 2.0 ? 1 : 0);
+      const slide = E.io(seg(u, 4.6, 5.4));
+      tf(s1, 330, 640 + 60 * (1 - E.back(seg(u, 1.2, 1.5))) + slide * 900, 1, -6);
+      tf(s2, 750, 820 + 60 * (1 - E.back(seg(u, 2.0, 2.3))) + slide * 900, 1, 5);
+      tf(fd, 540, 1010 + slide * 520, lerp(0.9, 0.55, slide), 0, lerp(0.9, 0.55, slide) * (1 - 0.4 * slide));
+      // 方糖：判决后蔫掉
+      const sad = u > 0.4;
+      tf(cube.g, 840, 1060 + slide * 900, 0.55);
+      setCube(cube, { open: blinkAt(t, [t0 + 2.6]), lid: sad ? 0.55 : 0.2, brow: sad ? -16 : 10, mouth: sad ? 'sad' : 'smirk', lookY: 6, armL: 20, armR: -20 });
+      op(cube.g, u > 0.1 ? 1 : 0);
+      stampAnim(st, t, t0 + 4.15, 520, 1000 + slide * 520, -8);
+      op(drawer, 1); tf(drawer, 0, lerp(800, 0, E.out(seg(u, 4.4, 5.0))));
+      view(v, t, { s: lerp(1, 0.9, E.io(seg(u, 4.6, 5.6))), cx: 540, cy: 1200 });
+    };
+  });
+
+  // ---------------- S14 片尾 ----------------
+  scene(TL.end, TL.dur + 1, (g) => {
+    bg(g, C.navy);
+    halftone(g, { color: C.night2, step: 24, angle: 15, f: radial(540, 900, 900, 0.8), maxK: 0.66 });
+    halftone(g, { color: C.caramel, step: 22, angle: 70, f: edge(1100, 1.5), maxK: 0.6 });
+    const h1 = chars(g, '关注我', { x: 540, y: 760, size: 190, family: F.serif, fill: C.cream, anchor: 'middle', shadow: { fill: C.red, dx: 9, dy: 9 } });
+    const h2 = chars(g, '复杂的事讲清楚', { x: 540, y: 940, size: 96, family: F.serif, fill: C.yellow, anchor: 'middle', shadow: { fill: C.caramel, dx: 6, dy: 6 } });
+    const t0 = TL.end;
+    ev(t0, 'wipe'); ev(t0 + 0.3, 'pop'); ev(t0 + 1.0, 'pop');
+    return (t) => {
+      charsPop(h1, t, t0 + 0.2, 0.08);
+      charsPop(h2, t, t0 + 0.9, 0.05);
+    };
+  });
+
+  buildHud(); buildWipe(); buildCaps();
+}
+
+// ============================================================
+// HUD（顶部，避开状态栏）
+// ============================================================
+let hudUpdate = () => {}, wipeUpdate = () => {}, capUpdate = () => {};
+const DARK = [[TL.open, TL.mug], [TL.c1c, TL.c2], [TL.board, TL.disguise], [TL.end, 999]];
+const isDark = (t) => DARK.some(([a, b]) => t >= a && t < b);
+function buildHud() {
+  const hudG = el('g', {}, document.getElementById('hud'));
+  const caseNo = txt(hudG, 'CASE No.2026-TANG-001', { x: 64, y: 206, 'font-size': 28, 'font-family': F.mono, 'font-weight': 800 });
+  const chip = el('g', {}, hudG);
+  const chipBg = el('rect', { x: 64, y: 222, height: 48, rx: 6 }, chip);
+  const chipA = txt(chip, '', { x: 80, y: 257, 'font-size': 30, 'font-family': F.sans, 'font-weight': 900 });
+  const chipB = txt(chip, '', { y: 257, 'font-size': 30, 'font-family': F.sans, 'font-weight': 900 });
+  const date = el('g', {}, hudG);
+  const dateBg = el('rect', { x: 800, y: 176, width: 216, height: 58, rx: 8, fill: 'none', 'stroke-width': 4 }, date);
+  const rec = el('circle', { cx: 830, cy: 205, r: 11, fill: C.red }, date);
+  const dateT = txt(date, '2026.10', { x: 852, y: 217, 'font-size': 34, 'font-family': F.mono, 'font-weight': 800 });
+  const chips = [
+    [TL.open, TL.hide, '立案', '嫌疑人'], [TL.hide, TL.c1, '立案', '作案量'], [TL.c1, TL.c2, '罪状一', '胰岛素'],
+    [TL.c2, TL.c3, '罪状二', '肝脏'], [TL.c3, TL.c4, '罪状三', '皮肤'], [TL.c4, TL.c5, '罪状四', '牙齿'],
+    [TL.c5, TL.board, '罪状五', '体重'], [TL.board, TL.disguise, '综上', '证据链'], [TL.disguise, TL.verdict, '补充', '伪装'],
+    [TL.verdict, TL.close, '宣判', '膳食指南'], [TL.close, TL.end, '结案', '归档'],
+  ];
+  hudUpdate = (t) => {
+    const c = chips.find(c => t >= c[0] && t < c[1]);
+    show(hudG, !!c);
+    if (!c) return;
+    const dark = isDark(t);
+    const ink = dark ? C.cream : C.navy;
+    caseNo.setAttribute('fill', ink);
+    chipBg.setAttribute('fill', dark ? C.cream : C.navy);
+    chipA.textContent = c[2]; chipA.setAttribute('fill', dark ? C.red : C.yellow);
+    chipB.textContent = c[3]; chipB.setAttribute('fill', dark ? C.navy : C.cream);
+    const wa = measure(c[2], 30, F.sans), wb = measure(c[3], 30, F.sans);
+    chipB.setAttribute('x', 80 + wa + 16);
+    chipBg.setAttribute('width', wa + wb + 48);
+    dateBg.setAttribute('stroke', ink); dateT.setAttribute('fill', ink);
+    op(rec, Math.floor(t * 2) % 2 ? 0.25 : 1);
+  };
+}
+
+// ============================================================
+// 字幕卡：下三分之一的上沿（顶边 y = 1290）
+// ============================================================
+const CAP_TOP = 1290, CAP_CX = 480, CAP_SIZE = 50, CAP_MAXW = 800;
+function splitKeys(line, keys) {
+  // → [[text, isKey]]
+  const parts = []; let i = 0;
+  while (i < line.length) {
+    let hit = null;
+    for (const k of keys) if (k && line.startsWith(k, i) && (!hit || k.length > hit.length)) hit = k;
+    if (hit) { parts.push([hit, true]); i += hit.length; }
+    else { if (parts.length && !parts[parts.length - 1][1]) parts[parts.length - 1][0] += line[i]; else parts.push([line[i], false]); i++; }
+  }
+  return parts;
+}
+function wrapCap(str) {
+  if (measure(str, CAP_SIZE, F.sans) <= CAP_MAXW) return [str];
+  // 在中间附近的标点处断行
+  const mid = str.length / 2; let best = -1;
+  for (let i = 1; i < str.length - 1; i++) if ('，、：；'.includes(str[i]) && (best < 0 || Math.abs(i - mid) < Math.abs(best - mid))) best = i;
+  if (best < 0) best = Math.floor(mid);
+  return [str.slice(0, best + 1), str.slice(best + 1)];
+}
+const capItems = [];
+function buildCaps() {
+  const root = document.getElementById('caps');
+  halftone(el('g', { class: 'mul' }, root), { y0: 1440, h: 480, step: 22, angle: 30, color: C.caramel, f: ramp(1460, 1920, 0, 0.75), maxK: 0.62 });
+  for (const [t0, t1, str, keys] of CAPS) {
+    const lines = wrapCap(str);
+    const g = el('g', {}, root);
+    const inner = el('g', {}, g);
+    const lh = CAP_SIZE * 1.45, padX = 34, padY = 22;
+    const w = Math.max(...lines.map(l => measure(l, CAP_SIZE, F.sans))) + padX * 2;
+    const h = lines.length * lh + padY * 2 - (lh - CAP_SIZE * 1.1);
+    el('rect', { x: -w / 2 + 9, y: 9, width: w, height: h, rx: 18, fill: C.caramel, class: 'mul' }, inner);
+    el('rect', { x: -w / 2, y: 0, width: w, height: h, rx: 18, fill: C.navy }, inner);
+    lines.forEach((ln, i) => {
+      const te = el('text', { x: 0, y: padY + CAP_SIZE * 0.9 + i * lh, 'font-size': CAP_SIZE, 'font-family': F.sans, 'font-weight': 900, 'text-anchor': 'middle' }, inner);
+      for (const [s, k] of splitKeys(ln, keys)) { const sp = el('tspan', { fill: k ? C.yellow : C.cream }, te); sp.textContent = s; }
+    });
+    capItems.push({ g, t0, t1, str, w, h });
+  }
+  capUpdate = (t) => {
+    for (const c of capItems) {
+      const on = t >= c.t0 && t < c.t1;
+      show(c.g, on);
+      if (!on) continue;
+      const p = seg(t, c.t0, c.t0 + 0.32);
+      tf(c.g, CAP_CX, CAP_TOP + 30 * (1 - E.out(p)), lerp(0.86, 1, E.back(p)), -0.8 * (1 - p));
+    }
+  };
+}
+window.TEXTS = (t) => capItems.filter(c => t >= c.t0 && t < c.t1).map(c => ({ id: 'cap', text: c.str, x0: CAP_CX - c.w / 2, y0: CAP_TOP, x1: CAP_CX + c.w / 2, y1: CAP_TOP + c.h }));
+
+// ============================================================
+// 网点擦除转场
+// ============================================================
+const WIPES = [
+  [TL.mug, C.yellow], [TL.hide, C.mint], [TL.blood, C.caramel], [TL.c1b, C.mint], [TL.c1c, C.navy],
+  [TL.disguise, C.navy], [TL.verdict, C.red], [TL.close, C.yellow], [TL.end, C.caramel],
+];
+function buildWipe() {
+  const dotsG = el('g', {}, document.getElementById('wipe'));
+  const wipeDots = [];
+  for (let y = 0; y <= H + 80; y += 80) for (let x = 0; x <= W + 80; x += 80) wipeDots.push({ el: el('circle', { cx: x, cy: y, r: 0 }, dotsG), x, y });
+  wipeUpdate = (t) => {
+    const w = WIPES.find(([b]) => Math.abs(t - b) < 0.22);
+    show(dotsG, !!w);
+    if (!w) return;
+    dotsG.setAttribute('fill', w[1]);
+    const u = (t - w[0] + 0.22) / 0.44;
+    wipeDots.forEach(d => {
+      const delay = (d.x / W * 0.4 + d.y / H * 0.6) * 0.35;
+      const p = clamp((u - delay) / 0.65);
+      d.el.setAttribute('r', (Math.sin(p * Math.PI) * 62).toFixed(1));
+    });
+  };
+}
+
+// ============================================================
+// 纸张 & 颗粒
+// ============================================================
+function buildPaper() {
+  const cv = document.getElementById('paper'), ctx = cv.getContext('2d');
+  const r = rng(3);
+  const small = document.createElement('canvas'); small.width = 54; small.height = 96;
+  const sctx = small.getContext('2d'); const sim = sctx.createImageData(54, 96);
+  for (let i = 0; i < sim.data.length; i += 4) { const v = 242 + r() * 13; sim.data[i] = sim.data[i + 1] = sim.data[i + 2] = v; sim.data[i + 3] = 255; }
+  sctx.putImageData(sim, 0, 0);
+  ctx.imageSmoothingEnabled = true; ctx.drawImage(small, 0, 0, W, H);
+  const base = ctx.getImageData(0, 0, W, H);
+  for (let i = 0; i < base.data.length; i += 4) {
+    const n = (r() - 0.5) * 26;
+    base.data[i] = clamp(base.data[i] + n, 0, 255);
+    base.data[i + 1] = clamp(base.data[i + 1] + n, 0, 255);
+    base.data[i + 2] = clamp(base.data[i + 2] + n - 4, 0, 255);
+  }
+  ctx.putImageData(base, 0, 0);
+  const gr = ctx.createRadialGradient(540, 960, 500, 540, 960, 1250);
+  gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(1, 'rgba(120,100,80,0.35)');
+  ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(140,120,100,0.18)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(0, 960); ctx.lineTo(W, 962); ctx.stroke();
+}
+function drawFx(frame) {
+  const cv = document.getElementById('fx'), ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+  const r = rng(1000 + Math.floor(frame / 2));
+  ctx.fillStyle = 'rgba(255,248,235,0.75)';
+  for (let i = 0; i < 520; i++) { ctx.beginPath(); ctx.arc(r() * W, r() * H, 0.6 + r() * 1.8, 0, 7); ctx.fill(); }
+  ctx.fillStyle = 'rgba(28,35,64,0.25)';
+  for (let i = 0; i < 90; i++) { ctx.beginPath(); ctx.arc(r() * W, r() * H, 0.6 + r() * 1.3, 0, 7); ctx.fill(); }
+}
+
+// ============================================================
+// 渲染
+// ============================================================
+const boilT = document.getElementById('boilT');
+const GROOVE = [[TL.c1, TL.board]];
+const BEAT = 60 / 92;
+function render(t) {
+  const frame = Math.round(t * FPS);
+  boilT.setAttribute('seed', 1 + (Math.floor(t * 10) % 40));
+  for (const s of scenes) {
+    const on = t >= s.t0 && t < s.t1;
+    show(s.g, on);
+    if (on) s.update(t);
+  }
+  let dx = 0, dy = 0;
+  for (const [t0, a, d] of SHAKES) {
+    if (t >= t0 && t < t0 + d) { const k = 1 - (t - t0) / d; dx += a * k * k * Math.sin(t * 91 + t0); dy += a * k * k * Math.cos(t * 77 + t0 * 3); }
+  }
+  const inGroove = GROOVE.some(([a, b]) => t >= a && t < b);
+  const pulse = inGroove ? 1 + 0.006 * Math.exp(-(((t - TL.c1) % BEAT) / 0.07)) : 1;
+  cam.setAttribute('transform', `translate(${(dx + 540 * (1 - pulse)).toFixed(2)} ${(dy + 960 * (1 - pulse)).toFixed(2)}) scale(${pulse.toFixed(4)})`);
+  let fl = 0;
+  for (const [f, a] of FLASHES) if (t >= f && t < f + 0.3) fl = Math.max(fl, Math.min(a, 0.5) * Math.pow(1 - (t - f) / 0.3, 2));
+  op(flash, fl);
+  op(fade, seg(t, TL.dur - 0.6, TL.dur - 0.05));
+  hudUpdate(t);
+  capUpdate(t);
+  wipeUpdate(t);
+  drawFx(frame);
+}
+
+async function init() {
+  const fams = ['900 50px "Noto Serif SC"', '400 50px "ZCOOL KuaiLe"', '400 50px "Bagel Fat One"', '800 50px "JetBrains Mono"', '900 50px "Noto Sans SC"'];
+  const all = document.documentElement.innerHTML;
+  const sample = all.replace(/[\x00-\x2f]/g, '') + 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:：。，！？～·—≈×%+';
+  await Promise.all(fams.map(f => document.fonts.load(f, sample)));
+  await document.fonts.ready;
+  buildPaper();
+  buildAll();
+  window.EV.sort((a, b) => a.t - b.t);
+  const all2 = document.getElementById('stage').textContent;
+  await Promise.all(fams.map(f => document.fonts.load(f, all2)));
+  await document.fonts.ready;
+  const q = new URLSearchParams(location.search);
+  render(parseFloat(q.get('t') || '0'));
+  window.DUR = DUR;
+  window.READY = true;
+}
+window.render = render;
+init();
+</script>
+</body>
+</html>

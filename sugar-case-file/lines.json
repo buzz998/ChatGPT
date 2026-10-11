@@ -1,0 +1,267 @@
+[
+ {
+  "id": "L01",
+  "t": 0.2,
+  "text": "立案。嫌疑人：糖。",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L02",
+  "t": 1.9,
+  "text": "藏身地点：你手里这杯全糖奶茶。",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L03",
+  "t": 3.8,
+  "text": "一大杯大约30多克，差不多8块方糖。",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%",
+  "say": "一大杯大约三十多克，差不多八块方糖。"
+ },
+ {
+  "id": "L04",
+  "t": 8.6,
+  "text": "而你全身血液里的糖，加起来只有4克左右。",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%",
+  "say": "而你全身血液里的糖，加起来只有四克左右。"
+ },
+ {
+  "id": "L05",
+  "t": 12.0,
+  "text": "一口气灌进去七八倍，身体怎么收场？",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L06",
+  "t": 15.1,
+  "text": "罪状一：累垮胰岛素。",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L07",
+  "t": 17.2,
+  "text": "糖冲进血液，血糖猛涨，",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L08",
+  "t": 19.4,
+  "text": "胰腺紧急派出胰岛素去处理。",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L09",
+  "t": 21.8,
+  "text": "天天这样，细胞对胰岛素越来越不理睬，",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L10",
+  "t": 25.0,
+  "text": "这叫胰岛素抵抗。",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L11",
+  "t": 26.8,
+  "text": "研究发现，每天多喝一份含糖饮料，",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L12",
+  "t": 29.4,
+  "text": "2型糖尿病风险约高18%。",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%",
+  "say": "二型糖尿病风险约高百分之十八。"
+ },
+ {
+  "id": "L13",
+  "t": 31.6,
+  "text": "罪状二：把肝脏变成脂肪仓库。",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L14",
+  "t": 34.2,
+  "text": "糖里的果糖主要由肝脏处理，",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L15",
+  "t": 36.6,
+  "text": "喝多了，肝脏就把它变成脂肪囤起来，",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L16",
+  "t": 39.6,
+  "text": "时间长了，就是脂肪肝。",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L17",
+  "t": 41.6,
+  "text": "罪状三：让皮肤变老。",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L18",
+  "t": 43.6,
+  "text": "多余的糖粘在胶原蛋白上，",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L19",
+  "t": 46.0,
+  "text": "形成“糖化终产物”，",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L20",
+  "t": 47.8,
+  "text": "皮肤失去弹性，更容易长皱纹。",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L21",
+  "t": 50.2,
+  "text": "罪状四：腐蚀牙齿。",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L22",
+  "t": 52.0,
+  "text": "嘴里的细菌吃糖、吐酸，",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L23",
+  "t": 54.0,
+  "text": "牙齿一点点被蛀空。",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L24",
+  "t": 55.8,
+  "text": "罪状五：悄悄让你变胖。",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L25",
+  "t": 57.8,
+  "text": "用不完的糖最后变成脂肪，",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L26",
+  "t": 60.2,
+  "text": "而喝下去的热量，偏偏最不顶饱。",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L27",
+  "t": 65.2,
+  "text": "它最狡猾的是伪装：",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L28",
+  "t": 67.2,
+  "text": "标着“不另外加糖”的奶茶，",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L29",
+  "t": 69.4,
+  "text": "检测出来每100克仍有约4克糖。",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%",
+  "say": "检测出来每一百克仍有约四克糖。"
+ },
+ {
+  "id": "L30",
+  "t": 73.2,
+  "text": "宣判：《中国居民膳食指南》建议，",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L31",
+  "t": 76.0,
+  "text": "成年人每天添加糖不超过50克，",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%",
+  "say": "成年人每天添加糖不超过五十克，"
+ },
+ {
+  "id": "L32",
+  "t": 78.6,
+  "text": "最好控制在25克以下。",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%",
+  "say": "最好控制在二十五克以下。"
+ },
+ {
+  "id": "L33",
+  "t": 80.6,
+  "text": "一杯全糖奶茶，就已经越过了这条线。",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L34",
+  "t": 84.4,
+  "text": "不是一口都不能喝，",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L35",
+  "t": 86.0,
+  "text": "是别天天喝、别喝全糖。",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L36",
+  "t": 88.0,
+  "text": "结案。",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ },
+ {
+  "id": "L37",
+  "t": 90.0,
+  "text": "关注我，复杂的事讲清楚。",
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%"
+ }
+]
