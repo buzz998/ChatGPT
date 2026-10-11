@@ -60,9 +60,10 @@ const F = {
 // 时间轴（单一来源；配音完成后按实测重排）
 const TL = window.TL = {
   open: 0, mug: 2.65, hide: 5.83, blood: 10.83, c1: 18.13, c1b: 25.49, c1c: 30.91, c2: 37.4, c3: 48.77, c4: 58.23, c5: 64.63,
-  board: 72.58, disguise: 74.78, verdict: 82.46, close: 95.32, end: 101.52, dur: 105.22,
+  board: 72.58, disguise: 74.78, verdict: 82.46, close: 96.52, end: 102.72, dur: 106.42,
 };
 const DUR = TL.dur;
+// 画面节拍跟随台词：按字幕文本取起止时间
 // 字幕卡：口播原句（[文本, 关键词...]）
 const CAPS = [
   [0.2, 2.85, '立案。嫌疑人：糖。', ['立案', '糖']],
@@ -98,11 +99,14 @@ const CAPS = [
   [86.09, 89.16, '成年人每天添加糖不超过50克，', ['50克']],
   [89.16, 91.4, '最好控制在25克以下。', ['25克']],
   [91.4, 94.52, '一杯全糖奶茶，就已经越过了这条线。', ['越过了这条线']],
-  [95.52, 97.17, '不是一口都不能喝，', []],
-  [97.17, 99.72, '是别天天喝、别喝全糖。', ['别天天喝', '别喝全糖']],
-  [99.72, 101.52, '结案。', ['结案']],
-  [101.72, 105.02, '关注我，复杂的事讲清楚。', ['复杂的事讲清楚']],
+  [96.72, 98.37, '不是一口都不能喝，', []],
+  [98.37, 100.92, '是别天天喝、别喝全糖。', ['别天天喝', '别喝全糖']],
+  [100.92, 102.72, '结案。', ['结案']],
+  [102.92, 106.22, '关注我，复杂的事讲清楚。', ['复杂的事讲清楚']],
 ];
+
+const capOf = (sub) => CAPS.find(c => c[2].includes(sub));
+const capT = (sub) => capOf(sub)[0], capE = (sub) => capOf(sub)[1];
 
 function el(tag, attrs = {}, parent) {
   const e = document.createElementNS(NS, tag);
@@ -825,14 +829,15 @@ function buildAll() {
     const t0 = TL.c2;
     ev(t0, 'hit'); SHAKES.push([t0, 14, 0.25]);
     for (let i = 0; i < 4; i++) ev(t0 + 2.8 + i * 0.5, 'beep', { n: i });
-    for (let i = 0; i < 6; i++) ev(t0 + 5.2 + i * 0.35, 'plop', { n: i });
-    ev(t0 + 8.1, 'stampSmall');
+    const FD = capT('囤起来') - t0 - 5.0, FL = capT('就是脂肪肝') - t0 - 8.0;
+    for (let i = 0; i < 6; i++) ev(t0 + FD + 5.2 + i * 0.35, 'plop', { n: i });
+    ev(t0 + FL + 8.1, 'stampSmall');
     return (t) => {
       const u = t - t0;
       headerAnim(hdr, t, t0);
       op(liver.g, u > 0.7 ? 1 : 0);
       const sq = squash(t, t0 + 1.1, 0.15);
-      const swell = 1 + 0.12 * E.io(seg(u, 5.0, 8.0));
+      const swell = 1 + 0.12 * E.io(seg(u, 5.0 + FD, 8.0 + FD));
       tf(liver.g, 560, lerp(1700, 1050, E.out(seg(u, 0.7, 1.1))), swell / sq, 0, swell * sq);
       crates.forEach((c, i) => {
         const s0 = 2.6 + i * 0.5, p = seg(u, s0, s0 + 0.8);
@@ -840,11 +845,11 @@ function buildAll() {
         tf(c, lerp(1160, 520, E.io(p)), 1090 + Math.abs(Math.sin(p * 9)) * -14, 0.9 * (1 - 0.6 * seg(p, 0.75, 1)));
       });
       liver.drops.forEach((d, i) => {
-        const s0 = 5.0 + d.t * 2.8;
+        const s0 = 5.0 + FD + d.t * 2.8;
         const p = E.back(seg(u, s0, s0 + 0.3));
         d.g.setAttribute('transform', `translate(${d.x} ${d.y}) scale(${p.toFixed(3)})`);
       });
-      op(fatT.g, u > 8.0 ? 1 : 0); charsPop(fatT, t, t0 + 8.0, 0.08);
+      op(fatT.g, u > 8.0 + FL ? 1 : 0); charsPop(fatT, t, t0 + 8.0 + FL, 0.08);
       view(v, t, { s: lerp(1, 1.08, E.io(seg(u, 2.2, 9.6))), cx: 560, cy: 1050 });
     };
   });
@@ -915,7 +920,8 @@ function buildAll() {
     const t0 = TL.c4;
     ev(t0, 'hit'); SHAKES.push([t0, 18, 0.25]);
     for (let i = 0; i < 6; i++) ev(t0 + 1.8 + i * 0.3, 'munch', { n: i });
-    for (let i = 0; i < 4; i++) ev(t0 + 3.6 + i * 0.4, 'crack', { n: i });
+    const TH = capT('蛀空') - t0 - 3.6;
+    for (let i = 0; i < 4; i++) ev(t0 + TH + 3.6 + i * 0.4, 'crack', { n: i });
     return (t) => {
       const u = t - t0;
       headerAnim(hdr, t, t0);
@@ -934,10 +940,10 @@ function buildAll() {
         b.setAttribute('r', (p > 0 && p < 1 ? 10 + 14 * Math.sin(p * Math.PI) : 0).toFixed(1));
       });
       tooth.holes.forEach((hg, i) => {
-        const p = E.back(seg(u, 3.6 + i * 0.4, 3.9 + i * 0.4));
+        const p = E.back(seg(u, TH + 3.6 + i * 0.4, TH + 3.9 + i * 0.4));
         op(hg, p > 0 ? 1 : 0);
       });
-      op(crunch.g, u > 3.6 ? 1 : 0); charsPop(crunch, t, t0 + 3.6, 0.06);
+      op(crunch.g, u > 3.6 + TH ? 1 : 0); charsPop(crunch, t, t0 + 3.6 + TH, 0.06);
       view(v, t, { s: lerp(1, 1.1, E.io(seg(u, 1.0, 5.6))), cx: 560, cy: 960 });
     };
   });
@@ -961,7 +967,8 @@ function buildAll() {
     const t0 = TL.c5;
     ev(t0, 'hit'); SHAKES.push([t0, 14, 0.25]);
     for (let i = 0; i < 3; i++) ev(t0 + 2.2 + i * 0.6, 'click', { n: i });
-    ev(t0 + 4.8, 'alarm'); ev(t0 + 5.8, 'deflate');
+    const GA = capT('不顶饱') - t0 - 4.0;
+    ev(t0 + GA + 4.8, 'alarm'); ev(t0 + GA + 5.8, 'deflate');
     return (t) => {
       const u = t - t0;
       headerAnim(hdr, t, t0);
@@ -970,11 +977,11 @@ function buildAll() {
       const notch = Math.min(3, Math.floor(seg(u, 2.2, 4.0) * 3 + (u >= 2.2 ? 1 : 0)));
       const bx = 380 + 60 * notch;
       tf(buckle, bx - 70, 860 + 8 * squash(t, t0 + 2.2 + (notch - 1) * 0.6, 1, 12) - 8, 1);
-      op(g1.g, u > 4.0 ? 1 : 0); op(g2.g, u > 4.0 ? 1 : 0);
-      tf(g1.g, 300, 1160 - 40 * (1 - E.back(seg(u, 4.0, 4.35))), 0.92);
-      tf(g2.g, 780, 1160 - 40 * (1 - E.back(seg(u, 4.15, 4.5))), 0.92);
-      const a1 = lerp(-180, -12, E.out(seg(u, 4.4, 5.0))) + (u > 5 ? Math.sin(u * 40) * 2 : 0);
-      const a2 = lerp(-180, -160, E.out(seg(u, 5.6, 6.2)));
+      op(g1.g, u > 4.0 + GA ? 1 : 0); op(g2.g, u > 4.0 + GA ? 1 : 0);
+      tf(g1.g, 300, 1160 - 40 * (1 - E.back(seg(u, 4.0 + GA, 4.35 + GA))), 0.92);
+      tf(g2.g, 780, 1160 - 40 * (1 - E.back(seg(u, 4.15 + GA, 4.5 + GA))), 0.92);
+      const a1 = lerp(-180, -12, E.out(seg(u, 4.4 + GA, 5.0 + GA))) + (u > 5 + GA ? Math.sin(u * 40) * 2 : 0);
+      const a2 = lerp(-180, -160, E.out(seg(u, 5.6 + GA, 6.2 + GA)));
       g1.needle.setAttribute('transform', `rotate(${a1.toFixed(2)})`);
       g2.needle.setAttribute('transform', `rotate(${a2.toFixed(2)})`);
       view(v, t, { s: 1 + 0.006 * Math.exp(-((u % 0.652) / 0.07)) });
@@ -1089,24 +1096,26 @@ function buildAll() {
     const cupIc = el('g', {}, v); milkTea(cupIc, { pearls: true });
     const st = stampEl(g, '越线', { size: 210, color: C.red });
     const t0 = TL.verdict;
-    ev(t0 - 0.0, 'gavel'); ev(t0 + 3.4, 'line'); ev(t0 + 5.9, 'line'); ev(t0 + 8.0, 'riser');
-    ev(t0 + 10.75, 'stamp', { big: 1 });
-    SHAKES.push([t0 + 10.75, 26, 0.45]); FLASHES.push([t0 + 10.75, 0.5]);
+    const L5 = capT('50克') - t0 - 3.4, L2 = capT('25克') - t0 - 5.9, VB = capT('越过了这条线') - t0 - 8.0;
+    const ST = capE('越过了这条线') + 0.7;
+    ev(t0 - 0.0, 'gavel'); ev(t0 + 3.4 + L5, 'line'); ev(t0 + 5.9 + L2, 'line'); ev(t0 + 8.0 + VB, 'riser');
+    ev(ST, 'stamp', { big: 1, verdict: 1 });
+    SHAKES.push([ST, 26, 0.45]); FLASHES.push([ST, 0.5]);
     return (t) => {
       const u = t - t0;
       charsPop(h, t, t0 + 0.15, 0.1, 0.45, 100);
       op(book, u > 0.8 ? 1 : 0); tf(book, 64, 580 - 30 * (1 - E.back(seg(u, 0.8, 1.15))));
       op(ruler, u > 3.0 ? 1 : 0); tf(ruler, -300 * (1 - E.out(seg(u, 3.0, 3.4))), 0);
-      const l50 = seg(u, 3.4, 3.9), l25 = seg(u, 5.9, 6.4);
+      const l50 = seg(u, 3.4 + L5, 3.9 + L5), l25 = seg(u, 5.9 + L2, 6.4 + L2);
       line50.setAttribute('clip-path', ''); op(line50, l50); tf(line50, -300 * (1 - E.out(l50)), 0);
       op(line25, l25); tf(line25, -300 * (1 - E.out(l25)), 0);
       // 糖量柱涨到 32g 越过 25 线
-      const fill = 32 * E.io(seg(u, 8.0, 9.8));
+      const fill = 32 * E.io(seg(u, 8.0 + VB, 9.8 + VB));
       bar.setAttribute('y', yOf(fill)); bar.setAttribute('height', Math.max(0, fill * 10));
-      op(bar, u > 7.9 ? 1 : 0);
-      op(cupIc, u > 7.8 ? 1 : 0); tf(cupIc, 490, yOf(fill) - 150, 0.36);
-      stampAnim(st, t, t0 + 10.75, 700, 860, -10);
-      view(v, t, { s: lerp(1, 1.06, E.io(seg(u, 8.0, 10.6))), cx: 520, cy: 980 });
+      op(bar, u > 7.9 + VB ? 1 : 0);
+      op(cupIc, u > 7.8 + VB ? 1 : 0); tf(cupIc, 490, yOf(fill) - 150, 0.36);
+      stampAnim(st, t, ST, 700, 860, -10);
+      view(v, t, { s: lerp(1, 1.06, E.io(seg(u, 8.0 + VB, ST - t0 - 0.2))), cx: 520, cy: 980 });
     };
   });
 
@@ -1129,23 +1138,24 @@ function buildAll() {
     const cube = cubeChar(v);
     const st = stampEl(g, '结案', { size: 200, color: C.red });
     const t0 = TL.close;
-    ev(t0, 'wipe'); ev(t0 + 1.2, 'paper'); ev(t0 + 2.0, 'paper'); ev(t0 + 4.15, 'stamp', { big: 1 }); ev(t0 + 4.9, 'drawer');
-    SHAKES.push([t0 + 4.15, 22, 0.35]);
+    const NS1 = capT('别天天喝') - t0 - 1.2, CS = capT('结案。') - t0 + 0.15 - 4.15;
+    ev(t0, 'wipe'); ev(t0 + 1.2 + NS1, 'paper'); ev(t0 + 2.0 + NS1, 'paper'); ev(t0 + 4.15 + CS, 'stamp', { big: 1, close: 1 }); ev(t0 + 4.9 + CS, 'drawer');
+    SHAKES.push([t0 + 4.15 + CS, 22, 0.35]);
     return (t) => {
       const u = t - t0;
-      op(s1, u > 1.2 ? 1 : 0); op(s2, u > 2.0 ? 1 : 0);
-      const slide = E.io(seg(u, 4.6, 5.4));
-      tf(s1, 330, 640 + 60 * (1 - E.back(seg(u, 1.2, 1.5))) + slide * 900, 1, -6);
-      tf(s2, 750, 820 + 60 * (1 - E.back(seg(u, 2.0, 2.3))) + slide * 900, 1, 5);
+      op(s1, u > 1.2 + NS1 ? 1 : 0); op(s2, u > 2.0 + NS1 ? 1 : 0);
+      const slide = E.io(seg(u, 4.6 + CS, 5.4 + CS));
+      tf(s1, 330, 640 + 60 * (1 - E.back(seg(u, 1.2 + NS1, 1.5 + NS1))) + slide * 900, 1, -6);
+      tf(s2, 750, 820 + 60 * (1 - E.back(seg(u, 2.0 + NS1, 2.3 + NS1))) + slide * 900, 1, 5);
       tf(fd, 540, 1010 + slide * 520, lerp(0.9, 0.55, slide), 0, lerp(0.9, 0.55, slide) * (1 - 0.4 * slide));
       // 方糖：判决后蔫掉
       const sad = u > 0.4;
       tf(cube.g, 840, 1060 + slide * 900, 0.55);
       setCube(cube, { open: blinkAt(t, [t0 + 2.6]), lid: sad ? 0.55 : 0.2, brow: sad ? -16 : 10, mouth: sad ? 'sad' : 'smirk', lookY: 6, armL: 20, armR: -20 });
       op(cube.g, u > 0.1 ? 1 : 0);
-      stampAnim(st, t, t0 + 4.15, 520, 1000 + slide * 520, -8);
-      op(drawer, 1); tf(drawer, 0, lerp(800, 0, E.out(seg(u, 4.4, 5.0))));
-      view(v, t, { s: lerp(1, 0.9, E.io(seg(u, 4.6, 5.6))), cx: 540, cy: 1200 });
+      stampAnim(st, t, t0 + 4.15 + CS, 520, 1000 + slide * 520, -8);
+      op(drawer, 1); tf(drawer, 0, lerp(800, 0, E.out(seg(u, 4.4 + CS, 5.0 + CS))));
+      view(v, t, { s: lerp(1, 0.9, E.io(seg(u, 4.6 + CS, 5.6 + CS))), cx: 540, cy: 1200 });
     };
   });
 

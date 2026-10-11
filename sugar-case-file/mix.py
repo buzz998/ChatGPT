@@ -245,7 +245,7 @@ for t in win(TL['disguise'], TL['verdict'] - .3, E8, TL['disguise']):
     if pos == 4 and b % 2 == 0: nt(t, 'harpsichord', root + 36, .5, .5, .3, .5)
 
 # G. 宣判：定音鼓四分脉冲 → 震音渐强 → 静默 → 印章 → 一小节律动
-ST = TL['verdict'] + 10.75
+ST = next(e['t'] for e in EV if e['type'] == 'stamp' and e.get('verdict'))
 nt(TL['verdict'], 'timpani', 'D3', 1.2, .9, 0, .9)
 for t in win(TL['verdict'] + BEAT, ST - 1.2, BEAT, TL['verdict']):
     nt(t, 'timpani', 'A2' if int((t - TL['verdict']) / BEAT) % 4 == 3 else 'D3', .6, .45, 0, .55)
@@ -265,7 +265,7 @@ for t in win(ST + BEAT, TL['close'] + 1.2, E8, ST):
 # H. 结案：马林巴主题放慢 + 音乐盒
 for k, p in enumerate([69, 74, 76, 77, 76, 74, 73, 74]):
     nt(TL['close'] + .6 + k * BEAT * .75, 'marimba', p, BEAT, .5, .2, .6)
-CS = TL['close'] + 4.15
+CS = next(e['t'] for e in EV if e['type'] == 'stamp' and e.get('close'))
 nt(CS, 'piano', 'D1', 2.0, .75, 0, .7); nt(CS, 'timpani', 'D3', 1.2, .7, 0, .6)
 for k, p in enumerate([86, 89, 93, 98]): nt(CS + .5 + k * .18, 'glockenspiel', p, 1.5, .45, .3, .5)
 # I. 片尾：音乐盒尾句 + 最后一记低音
